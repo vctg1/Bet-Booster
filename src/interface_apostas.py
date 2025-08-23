@@ -22,7 +22,7 @@ pasta_api = os.path.join(pasta_pai, 'api')
 if pasta_api not in sys.path:
     sys.path.insert(0, pasta_api)
 
-from api.sofascore_api import SofaScoreAPI
+from sofascore_api import SofaScoreAPI
 
 class CalculadoraApostasGUI:
     def __init__(self, root):
