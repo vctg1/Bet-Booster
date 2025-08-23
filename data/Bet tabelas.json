@@ -1,0 +1,25 @@
+{
+    "media_gols": [
+        {
+            "TimeA": {
+                "nome": "Cruzeiro",
+                "gols/partida": 1.6,
+                "gols sof/partida": 0.7
+            },
+            "TimeB": {
+                "nome": "Internacional", 
+                "gols/partida": 1.2,
+                "gols sof/partida": 1.4
+            }
+        }
+    ],
+    "odds_atuais": {
+        "vitoria_a": 2.15,
+        "empate": 3.10,
+        "vitoria_b": 3.75
+    },
+    "configuracoes": {
+        "media_liga": 1.2,
+        "fator_casa": 1.15
+    }
+}
