@@ -106,16 +106,18 @@ O Bet Booster é um sistema profissional de análise de apostas esportivas que u
    • Comparação automática com odds das casas
 
 ⚽ Base de Dados Completa
-   • Mais de 500 times de ligas mundiais
+   • Integração com APIs de dados esportivos em tempo real
+   • Dados do Radar Esportivo e SofaScore
    • Estatísticas atualizadas de gols marcados/sofridos
    • Dados de mandante/visitante separados
-   • Integração com APIs de dados esportivos
+   • Filtros por data e busca avançada
 
 🖥️ Interface Profissional
    • 5 abas especializadas para diferentes análises
+   • Sistema de busca e filtros inteligentes
+   • Seleção múltipla de times e jogos
    • Calculadora de apostas múltiplas
    • Histórico e acompanhamento de resultados
-   • Exportação de relatórios em Excel
 
 💰 Ferramentas de Gestão
    • Calculadora de bankroll e stake
@@ -128,8 +130,16 @@ O Bet Booster é um sistema profissional de análise de apostas esportivas que u
 ✅ Fácil de usar - Interface intuitiva
 ✅ Rápido - Cálculos instantâneos
 ✅ Preciso - Modelos matematicamente validados
+✅ Atualizado - Dados em tempo real via API
 ✅ Completo - Tudo que você precisa em um só lugar
 ✅ Seguro - Dados salvos localmente
+
+📦 DEPENDÊNCIAS INSTALADAS:
+
+• Python 3.6+ (obrigatório)
+• requests>=2.32.0 (para APIs de dados)
+• tkinter (interface gráfica - incluído no Python)
+• Bibliotecas padrão (json, datetime, threading, etc.)
 
 🎓 IDEAL PARA:
 
@@ -260,10 +270,10 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         try:
             steps = [
                 (10, "Verificando versão do Python..."),
-                (20, "Verificando dependências..."),
-                (30, "Instalando bibliotecas necessárias..."),
-                (50, "Configurando ambiente..."),
-                (70, "Criando atalho na área de trabalho..."),
+                (20, "Verificando dependências básicas..."),
+                (40, "Instalando bibliotecas do requirements.txt..."),
+                (60, "Configurando ambiente e APIs..."),
+                (75, "Criando atalho na área de trabalho..."),
                 (90, "Finalizando configuração..."),
                 (100, "Instalação concluída!")
             ]
@@ -275,11 +285,11 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
                     self.verificar_python()
                 elif progress == 20:
                     self.verificar_dependencias()
-                elif progress == 30:
+                elif progress == 40:
                     self.instalar_bibliotecas()
-                elif progress == 50:
+                elif progress == 60:
                     self.configurar_ambiente()
-                elif progress == 70:
+                elif progress == 75:
                     self.criar_atalho_desktop()
                 elif progress == 90:
                     self.finalizar_configuracao()
@@ -304,38 +314,118 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         """Verifica dependências básicas"""
         self.log_message("🔍 Verificando dependências básicas...")
         
+        # Verificar tkinter (GUI)
         try:
             import tkinter
             self.log_message("✅ tkinter encontrado")
         except ImportError:
-            raise Exception("tkinter não está disponível")
+            raise Exception("tkinter não está disponível - necessário para a interface gráfica")
         
-        # Verificar outras dependências
-        deps = ['json', 'math', 'datetime', 'os', 'threading']
-        for dep in deps:
+        # Verificar requests (API calls)
+        try:
+            import requests
+            self.log_message(f"✅ requests encontrado (versão: {requests.__version__})")
+        except ImportError:
+            self.log_message("⚠️  requests não encontrado - será instalado")
+        
+        # Verificar outras dependências padrão do Python
+        deps_padrao = ['json', 'datetime', 'os', 'threading', 'math', 'sys']
+        for dep in deps_padrao:
             try:
                 __import__(dep)
                 self.log_message(f"✅ {dep} disponível")
             except ImportError:
-                self.log_message(f"❌ {dep} não encontrado")
+                self.log_message(f"❌ {dep} não encontrado (biblioteca padrão)")
+        
+        self.log_message("✅ Verificação de dependências concluída")
     
     def instalar_bibliotecas(self):
         """Instala bibliotecas necessárias"""
         self.log_message("📦 Instalando bibliotecas necessárias...")
         
-        # Lista de bibliotecas que podem precisar ser instaladas
-        bibliotecas = ['pywin32', 'winshell']
+        # Verificar se requirements.txt existe
+        pasta_atual = os.path.dirname(os.path.abspath(__file__))
+        requirements_path = os.path.join(pasta_atual, 'docs', 'requirements.txt')
         
-        for lib in bibliotecas:
+        if os.path.exists(requirements_path):
+            self.log_message(f"📋 Arquivo requirements.txt encontrado: {requirements_path}")
             try:
-                self.log_message(f"📥 Instalando {lib}...")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", lib], 
-                                    capture_output=True)
-                self.log_message(f"✅ {lib} instalado com sucesso")
-            except subprocess.CalledProcessError as e:
-                self.log_message(f"⚠️  Erro ao instalar {lib}: {e}")
+                self.log_message("📥 Instalando dependências do requirements.txt...")
+                result = subprocess.run([
+                    sys.executable, "-m", "pip", "install", "-r", requirements_path
+                ], capture_output=True, text=True, timeout=300)
+                
+                if result.returncode == 0:
+                    self.log_message("✅ Dependências do requirements.txt instaladas com sucesso")
+                    self.log_message(f"📝 Output: {result.stdout[:200]}...")
+                else:
+                    self.log_message(f"⚠️  Aviso ao instalar requirements: {result.stderr[:200]}...")
+                    # Tentar instalação individual das dependências críticas
+                    self.instalar_dependencias_individuais()
+                    
+            except subprocess.TimeoutExpired:
+                self.log_message("⏱️  Timeout na instalação - continuando com instalação individual...")
+                self.instalar_dependencias_individuais()
             except Exception as e:
-                self.log_message(f"⚠️  Aviso: {lib} - {e}")
+                self.log_message(f"❌ Erro ao instalar requirements: {e}")
+                self.instalar_dependencias_individuais()
+        else:
+            self.log_message("⚠️  requirements.txt não encontrado - instalando dependências essenciais...")
+            self.instalar_dependencias_individuais()
+    
+    def instalar_dependencias_individuais(self):
+        """Instala dependências uma por uma"""
+        self.log_message("🔄 Instalando dependências individuais...")
+        
+        # Lista de bibliotecas essenciais para o Bet Booster
+        bibliotecas_essenciais = [
+            'requests>=2.32.0',  # Para APIs de dados esportivos
+        ]
+        
+        # Lista de bibliotecas opcionais para funcionalidades extras
+        bibliotecas_opcionais = [
+            'pywin32',  # Para funcionalidades Windows (atalhos)
+            'winshell'  # Para manipulação de shell Windows
+        ]
+        
+        # Instalar bibliotecas essenciais
+        for lib in bibliotecas_essenciais:
+            try:
+                self.log_message(f"📥 Instalando biblioteca essencial: {lib}...")
+                result = subprocess.run([
+                    sys.executable, "-m", "pip", "install", lib
+                ], capture_output=True, text=True, timeout=120)
+                
+                if result.returncode == 0:
+                    self.log_message(f"✅ {lib} instalado com sucesso")
+                else:
+                    self.log_message(f"❌ Erro ao instalar {lib}: {result.stderr[:100]}...")
+                    raise Exception(f"Falha crítica ao instalar {lib}")
+                    
+            except subprocess.TimeoutExpired:
+                self.log_message(f"⏱️  Timeout ao instalar {lib}")
+                raise Exception(f"Timeout ao instalar dependência crítica: {lib}")
+            except Exception as e:
+                self.log_message(f"❌ Erro crítico ao instalar {lib}: {e}")
+                raise e
+        
+        # Instalar bibliotecas opcionais (não críticas)
+        for lib in bibliotecas_opcionais:
+            try:
+                self.log_message(f"📥 Instalando biblioteca opcional: {lib}...")
+                result = subprocess.run([
+                    sys.executable, "-m", "pip", "install", lib
+                ], capture_output=True, text=True, timeout=60)
+                
+                if result.returncode == 0:
+                    self.log_message(f"✅ {lib} instalado com sucesso")
+                else:
+                    self.log_message(f"⚠️  Aviso ao instalar {lib}: {result.stderr[:100]}...")
+                    
+            except subprocess.TimeoutExpired:
+                self.log_message(f"⏱️  Timeout ao instalar {lib} (opcional)")
+            except Exception as e:
+                self.log_message(f"⚠️  Aviso: {lib} (opcional) - {e}")
     
     def configurar_ambiente(self):
         """Configura o ambiente do programa"""
@@ -344,20 +434,38 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         # Verificar se os arquivos principais existem
         arquivos_necessarios = [
             'src/interface_apostas.py',
+            'api/radar_esportivo_api.py',
             'api/sofascore_api.py',
-            'assets/bet-booster.ico'
+            'assets/bet-booster.ico',
+            'docs/requirements.txt'
         ]
         
         pasta_atual = os.path.dirname(os.path.abspath(__file__))
+        arquivos_encontrados = 0
         
         for arquivo in arquivos_necessarios:
             caminho = os.path.join(pasta_atual, arquivo)
             if os.path.exists(caminho):
                 self.log_message(f"✅ {arquivo} encontrado")
+                arquivos_encontrados += 1
             else:
                 self.log_message(f"⚠️  {arquivo} não encontrado")
         
-        self.log_message("✅ Ambiente configurado")
+        # Verificar se a estrutura mínima está presente
+        if arquivos_encontrados >= 2:  # Pelo menos interface principal e uma API
+            self.log_message("✅ Estrutura mínima do projeto verificada")
+        else:
+            self.log_message("⚠️  Estrutura incompleta - algumas funcionalidades podem não funcionar")
+        
+        # Verificar se as dependências foram instaladas corretamente
+        try:
+            import requests
+            self.log_message("✅ requests verificado após instalação")
+        except ImportError:
+            self.log_message("❌ requests ainda não está disponível")
+            raise Exception("Falha crítica: requests não foi instalado corretamente")
+        
+        self.log_message("✅ Ambiente configurado com sucesso")
     
     def criar_atalho_desktop(self):
         """Cria atalho na área de trabalho"""
