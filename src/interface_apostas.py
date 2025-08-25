@@ -1237,8 +1237,6 @@ ANÁLISE COMPLETA DO CONFRONTO
                 
                 if not recomendacoes_fortes and not recomendacoes_arriscadas:
                     resultado_texto += "⚠️  Não foram encontradas apostas recomendadas\n"
-                    resultado_texto += "   • Para apostas FORTES: Resultado mais provável + Value >= 10%\n"
-                    resultado_texto += "   • Para apostas ARRISCADAS: Resultado menos provável + Value >= 20%\n"
                     resultado_texto += "Recomenda-se aguardar melhores oportunidades"
                 
             except ValueError:
