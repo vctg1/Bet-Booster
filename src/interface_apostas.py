@@ -1217,8 +1217,8 @@ ANÁLISE COMPLETA DO CONFRONTO
                                 f"🔥 FORTE: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
                         
-                        # ARRISCADA: NÃO é a maior probabilidade + Value >= 20%
-                        elif i > 0 and vantagem >= 20.0:  # Posição 1 ou 2 = segunda ou terceira maior
+                        # ARRISCADA: NÃO é a maior probabilidade + Value >= 20% + Prob >= 15%
+                        elif i > 0 and vantagem >= 20.0 and resultado['prob_nossa'] >= 0.15:  # Posição 1 ou 2 + prob mín 15%
                             recomendacoes_arriscadas.append(
                                 f"⚡ ARRISCADA: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
