@@ -1175,28 +1175,48 @@ ANÁLISE COMPLETA DO CONFRONTO
 
 """
                 
-                # Recomendações
+                # Recomendações com três níveis
                 resultado_texto += "🎯 RECOMENDAÇÕES:\n"
                 
-                recomendacoes = []
-                if prob_a > prob_impl_a and (prob_a - prob_impl_a) / prob_impl_a > 0.05:
-                    vantagem = (prob_a - prob_impl_a) / prob_impl_a * 100
-                    recomendacoes.append(f"🔥 FORTE: Apostar em vitória do {time_a} (Vantagem: {vantagem:.1f}%)")
+                recomendacoes_fortes = []
+                recomendacoes_arriscadas = []
                 
-                if prob_empate > prob_impl_empate and (prob_empate - prob_impl_empate) / prob_impl_empate > 0.05:
-                    vantagem = (prob_empate - prob_impl_empate) / prob_impl_empate * 100
-                    recomendacoes.append(f"🔥 FORTE: Apostar em empate (Vantagem: {vantagem:.1f}%)")
+                # Analisar cada resultado
+                for resultado, prob_nossa, prob_impl, nome_resultado in [
+                    ("vitoria_a", prob_a, prob_impl_a, f"vitória do {time_a}"),
+                    ("empate", prob_empate, prob_impl_empate, "empate"),
+                    ("vitoria_b", prob_b, prob_impl_b, f"vitória do {time_b}")
+                ]:
+                    if prob_nossa > prob_impl:
+                        vantagem = (prob_nossa - prob_impl) / prob_impl * 100
+                        
+                        # Recomendação FORTE: Value bet >= 10% E probabilidade >= 30%
+                        if vantagem >= 10.0 and prob_nossa >= 0.30:
+                            recomendacoes_fortes.append(
+                                f"🔥 FORTE: Apostar em {nome_resultado} (Vantagem: {vantagem:.1f}%, Prob: {prob_nossa:.1%})"
+                            )
+                        
+                        # Recomendação ARRISCADA: Value bet >= 20% E probabilidade < 30%
+                        elif vantagem >= 20.0 and prob_nossa < 0.30:
+                            recomendacoes_arriscadas.append(
+                                f"⚡ ARRISCADA: Apostar em {nome_resultado} (Vantagem: {vantagem:.1f}%, Prob: {prob_nossa:.1%})"
+                            )
                 
-                if prob_b > prob_impl_b and (prob_b - prob_impl_b) / prob_impl_b > 0.05:
-                    vantagem = (prob_b - prob_impl_b) / prob_impl_b * 100
-                    recomendacoes.append(f"🔥 FORTE: Apostar em vitória do {time_b} (Vantagem: {vantagem:.1f}%)")
-                
-                if not recomendacoes:
-                    resultado_texto += "⚠️  Não foram encontradas apostas com value significativo (>5%)\n"
-                    resultado_texto += "   Recomenda-se aguardar melhores oportunidades\n"
-                else:
-                    for rec in recomendacoes:
+                # Mostrar recomendações por prioridade
+                if recomendacoes_fortes:
+                    for rec in recomendacoes_fortes:
                         resultado_texto += f"{rec}\n"
+                
+                if recomendacoes_arriscadas:
+                    if recomendacoes_fortes:
+                        resultado_texto += "\n"
+                    for rec in recomendacoes_arriscadas:
+                        resultado_texto += f"{rec}\n"
+                    resultado_texto += "   ⚠️  ATENÇÃO: Apostas arriscadas têm alta vantagem mas baixa probabilidade!\n"
+                
+                if not recomendacoes_fortes and not recomendacoes_arriscadas:
+                    resultado_texto += "⚠️  Não foram encontradas apostas com vantagem significativa\n"
+                    resultado_texto += "Recomenda-se aguardar melhores oportunidades"
                 
             except ValueError:
                 resultado_texto += "\n💡 Para análise de value bets, insira as odds da casa de apostas\n"
@@ -1289,10 +1309,35 @@ ANÁLISE COMPLETA DO CONFRONTO
             retorno_potencial = valor * odd
             lucro_potencial = retorno_potencial - valor
             
-            # Análise de value
+            # Análise de value com três níveis de recomendação
             prob_implicita = 1 / odd
-            e_value = probabilidade > prob_implicita
             vantagem = (probabilidade - prob_implicita) / prob_implicita * 100
+            
+            # Determinar tipo de recomendação
+            recomendacao_tipo = ""
+            recomendacao_icone = ""
+            explicacao = ""
+            
+            if probabilidade > prob_implicita:
+                if vantagem >= 10.0 and probabilidade >= 0.30:
+                    # Recomendação FORTE
+                    recomendacao_tipo = "VALUE BET FORTE RECOMENDADO"
+                    recomendacao_icone = "🔥✅"
+                    explicacao = "   (Value >= 10% + Prob >= 30%)"
+                elif vantagem >= 20.0 and probabilidade < 0.30:
+                    # Recomendação ARRISCADA
+                    recomendacao_tipo = "VALUE BET ARRISCADO"
+                    recomendacao_icone = "⚡⚠️"
+                    explicacao = "   (Value >= 20% + Prob < 30% - RISCO ALTO!)"
+                else:
+                    # Não recomendado
+                    recomendacao_tipo = "NÃO RECOMENDADO"
+                    recomendacao_icone = "❌"
+                    explicacao = "   (Precisa: Value >= 10% + Prob >= 30% OU Value >= 20%)"
+            else:
+                recomendacao_tipo = "NÃO RECOMENDADO"
+                recomendacao_icone = "❌"
+                explicacao = "   (Sem value bet positivo)"
             
             resultado = f"""
 ANÁLISE DA APOSTA SIMPLES
@@ -1309,7 +1354,8 @@ ANÁLISE DA APOSTA SIMPLES
 📈 PROBABILIDADES:
 • Nossa probabilidade: {probabilidade:.1%}
 • Probabilidade implícita: {prob_implicita:.1%}
-• {"✅ VALUE BET" if e_value else "❌ SEM VALUE"}: {vantagem:+.1f}%
+• {recomendacao_icone} {recomendacao_tipo}: {vantagem:+.1f}%
+{explicacao}
 
 💵 RETORNOS:
 • Retorno total: R$ {retorno_potencial:.2f}

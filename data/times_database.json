@@ -1,88 +1,88 @@
 {
-  "Oviedo": {
-    "nome": "Oviedo",
-    "liga": "Spain La Liga",
+  "Sao Paulo": {
+    "nome": "Sao Paulo",
+    "liga": "Brazil Serie A",
     "origem": "Radar Esportivo API - Estatísticas Detalhadas (10 últimas)",
-    "data_cadastro": "2025-08-24T16:40:33.440635",
-    "gols_marcados_casa": 1.4,
-    "gols_sofridos_casa": 0.6,
+    "data_cadastro": "2025-08-24T21:18:08.177128",
+    "gols_marcados_casa": 1.6,
+    "gols_sofridos_casa": 1.1,
     "gols_marcados_fora": 0.0,
     "gols_sofridos_fora": 0.0,
-    "vitorias_casa": 7,
+    "vitorias_casa": 6,
     "empates_casa": 2,
-    "derrotas_casa": 1,
+    "derrotas_casa": 2,
     "forma_casa": [
-      "L",
-      "W",
-      "D",
-      "W",
-      "D"
-    ],
-    "gols_marcados": 0.8,
-    "gols_sofridos": 0.9,
-    "vitorias": 3,
-    "empates": 4,
-    "derrotas": 3,
-    "forma_geral": [
-      "L",
-      "D",
-      "L",
-      "W",
-      "D"
-    ],
-    "forca_ofensiva": 0.6666666666666667,
-    "forca_defensiva": 0.75,
-    "estatisticas_extras": {
-      "btts_geral": 5,
-      "over15_geral": 6,
-      "over25_geral": 3,
-      "partidas_analisadas": 10,
-      "btts_casa": 5,
-      "over15_casa": 6,
-      "over25_casa": 5
-    }
-  },
-  "Real Madrid": {
-    "nome": "Real Madrid",
-    "liga": "Spain La Liga",
-    "origem": "Radar Esportivo API - Estatísticas Detalhadas (10 últimas)",
-    "data_cadastro": "2025-08-24T16:40:33.441637",
-    "gols_marcados_casa": 0.0,
-    "gols_sofridos_casa": 0.0,
-    "gols_marcados_fora": 1.8,
-    "gols_sofridos_fora": 1.4,
-    "vitorias_fora": 6,
-    "empates_fora": 1,
-    "derrotas_fora": 3,
-    "forma_fora": [
-      "W",
-      "L",
       "W",
       "W",
-      "L"
-    ],
-    "gols_marcados": 2.0,
-    "gols_sofridos": 0.8,
-    "vitorias": 8,
-    "empates": 1,
-    "derrotas": 1,
-    "forma_geral": [
       "W",
-      "W",
-      "L",
       "W",
       "W"
     ],
-    "forca_ofensiva": 1.6666666666666667,
-    "forca_defensiva": 0.6666666666666667,
+    "gols_marcados": 1.5,
+    "gols_sofridos": 0.7,
+    "vitorias": 6,
+    "empates": 3,
+    "derrotas": 1,
+    "forma_geral": [
+      "W",
+      "D",
+      "D",
+      "W",
+      "L"
+    ],
+    "forca_ofensiva": 1.25,
+    "forca_defensiva": 0.5833333333333334,
     "estatisticas_extras": {
-      "btts_geral": 3,
-      "over15_geral": 8,
-      "over25_geral": 5,
+      "btts_geral": 5,
+      "over15_geral": 7,
+      "over25_geral": 4,
       "partidas_analisadas": 10,
-      "btts_fora": 3,
-      "over15_fora": 8,
-      "over25_fora": 7
+      "btts_casa": 7,
+      "over15_casa": 10,
+      "over25_casa": 5
+    }
+  },
+  "Atletico Mineiro": {
+    "nome": "Atletico Mineiro",
+    "liga": "Brazil Serie A",
+    "origem": "Radar Esportivo API - Estatísticas Detalhadas (10 últimas)",
+    "data_cadastro": "2025-08-24T21:18:08.177128",
+    "gols_marcados_casa": 0.0,
+    "gols_sofridos_casa": 0.0,
+    "gols_marcados_fora": 1.0,
+    "gols_sofridos_fora": 1.0,
+    "vitorias_fora": 4,
+    "empates_fora": 2,
+    "derrotas_fora": 4,
+    "forma_fora": [
+      "W",
+      "D",
+      "W",
+      "L",
+      "L"
+    ],
+    "gols_marcados": 1.0,
+    "gols_sofridos": 1.2,
+    "vitorias": 4,
+    "empates": 1,
+    "derrotas": 5,
+    "forma_geral": [
+      "W",
+      "L",
+      "W",
+      "D",
+      "D"
+    ],
+    "forca_ofensiva": 0.8333333333333334,
+    "forca_defensiva": 1.0,
+    "estatisticas_extras": {
+      "btts_geral": 5,
+      "over15_geral": 5,
+      "over25_geral": 4,
+      "partidas_analisadas": 10,
+      "btts_fora": 4,
+      "over15_fora": 4,
+      "over25_fora": 3
     }
   }
 }
