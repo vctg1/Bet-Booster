@@ -1175,31 +1175,52 @@ ANÁLISE COMPLETA DO CONFRONTO
 
 """
                 
-                # Recomendações com três níveis
+                # Recomendações baseadas na posição das probabilidades
                 resultado_texto += "🎯 RECOMENDAÇÕES:\n"
+                
+                # Criar lista de resultados com suas informações
+                resultados = [
+                    {
+                        "nome": f"vitória do {time_a}",
+                        "prob_nossa": prob_a,
+                        "prob_impl": prob_impl_a,
+                        "vantagem": (prob_a - prob_impl_a) / prob_impl_a * 100 if prob_a > prob_impl_a else None
+                    },
+                    {
+                        "nome": "empate",
+                        "prob_nossa": prob_empate,
+                        "prob_impl": prob_impl_empate,
+                        "vantagem": (prob_empate - prob_impl_empate) / prob_impl_empate * 100 if prob_empate > prob_impl_empate else None
+                    },
+                    {
+                        "nome": f"vitória do {time_b}",
+                        "prob_nossa": prob_b,
+                        "prob_impl": prob_impl_b,
+                        "vantagem": (prob_b - prob_impl_b) / prob_impl_b * 100 if prob_b > prob_impl_b else None
+                    }
+                ]
+                
+                # Ordenar por probabilidade (maior para menor)
+                resultados_ordenados = sorted(resultados, key=lambda x: x["prob_nossa"], reverse=True)
                 
                 recomendacoes_fortes = []
                 recomendacoes_arriscadas = []
                 
-                # Analisar cada resultado
-                for resultado, prob_nossa, prob_impl, nome_resultado in [
-                    ("vitoria_a", prob_a, prob_impl_a, f"vitória do {time_a}"),
-                    ("empate", prob_empate, prob_impl_empate, "empate"),
-                    ("vitoria_b", prob_b, prob_impl_b, f"vitória do {time_b}")
-                ]:
-                    if prob_nossa > prob_impl:
-                        vantagem = (prob_nossa - prob_impl) / prob_impl * 100
+                # Analisar cada resultado baseado na sua posição
+                for i, resultado in enumerate(resultados_ordenados):
+                    if resultado["vantagem"] is not None:  # Só se tiver value bet positivo
+                        vantagem = resultado["vantagem"]
                         
-                        # Recomendação FORTE: Value bet >= 10% E probabilidade >= 30%
-                        if vantagem >= 10.0 and prob_nossa >= 0.30:
+                        # FORTE: Maior probabilidade + Value >= 10%
+                        if i == 0 and vantagem >= 10.0:  # Posição 0 = maior probabilidade
                             recomendacoes_fortes.append(
-                                f"🔥 FORTE: Apostar em {nome_resultado} (Vantagem: {vantagem:.1f}%, Prob: {prob_nossa:.1%})"
+                                f"🔥 FORTE: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
                         
-                        # Recomendação ARRISCADA: Value bet >= 20% E probabilidade < 30%
-                        elif vantagem >= 20.0 and prob_nossa < 0.30:
+                        # ARRISCADA: NÃO é a maior probabilidade + Value >= 20%
+                        elif i > 0 and vantagem >= 20.0:  # Posição 1 ou 2 = segunda ou terceira maior
                             recomendacoes_arriscadas.append(
-                                f"⚡ ARRISCADA: Apostar em {nome_resultado} (Vantagem: {vantagem:.1f}%, Prob: {prob_nossa:.1%})"
+                                f"⚡ ARRISCADA: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
                 
                 # Mostrar recomendações por prioridade
@@ -1212,10 +1233,12 @@ ANÁLISE COMPLETA DO CONFRONTO
                         resultado_texto += "\n"
                     for rec in recomendacoes_arriscadas:
                         resultado_texto += f"{rec}\n"
-                    resultado_texto += "   ⚠️  ATENÇÃO: Apostas arriscadas têm alta vantagem mas baixa probabilidade!\n"
+                    resultado_texto += "   ⚠️  ATENÇÃO: Apostas arriscadas têm alta vantagem mas não são o resultado mais provável!\n"
                 
                 if not recomendacoes_fortes and not recomendacoes_arriscadas:
-                    resultado_texto += "⚠️  Não foram encontradas apostas com vantagem significativa\n"
+                    resultado_texto += "⚠️  Não foram encontradas apostas recomendadas\n"
+                    resultado_texto += "   • Para apostas FORTES: Resultado mais provável + Value >= 10%\n"
+                    resultado_texto += "   • Para apostas ARRISCADAS: Resultado menos provável + Value >= 20%\n"
                     resultado_texto += "Recomenda-se aguardar melhores oportunidades"
                 
             except ValueError:
@@ -1309,31 +1332,32 @@ ANÁLISE COMPLETA DO CONFRONTO
             retorno_potencial = valor * odd
             lucro_potencial = retorno_potencial - valor
             
-            # Análise de value com três níveis de recomendação
+            # Análise de value com critérios ajustados
             prob_implicita = 1 / odd
             vantagem = (probabilidade - prob_implicita) / prob_implicita * 100
             
             # Determinar tipo de recomendação
+            # Nota: Em apostas simples, não há comparação de posições, então usamos critérios absolutos
             recomendacao_tipo = ""
             recomendacao_icone = ""
             explicacao = ""
             
             if probabilidade > prob_implicita:
-                if vantagem >= 10.0 and probabilidade >= 0.30:
-                    # Recomendação FORTE
+                if vantagem >= 10.0:
+                    # Recomendação FORTE (sem critério de posição em apostas simples)
                     recomendacao_tipo = "VALUE BET FORTE RECOMENDADO"
                     recomendacao_icone = "🔥✅"
-                    explicacao = "   (Value >= 10% + Prob >= 30%)"
-                elif vantagem >= 20.0 and probabilidade < 0.30:
-                    # Recomendação ARRISCADA
-                    recomendacao_tipo = "VALUE BET ARRISCADO"
+                    explicacao = "   (Value >= 10% - Boa oportunidade!)"
+                elif vantagem >= 5.0:
+                    # Recomendação MODERADA (entre 5% e 10%)
+                    recomendacao_tipo = "VALUE BET MODERADO"
                     recomendacao_icone = "⚡⚠️"
-                    explicacao = "   (Value >= 20% + Prob < 30% - RISCO ALTO!)"
+                    explicacao = "   (Value >= 5% mas < 10% - Considere com cautela!)"
                 else:
-                    # Não recomendado
+                    # Value muito baixo
                     recomendacao_tipo = "NÃO RECOMENDADO"
                     recomendacao_icone = "❌"
-                    explicacao = "   (Precisa: Value >= 10% + Prob >= 30% OU Value >= 20%)"
+                    explicacao = "   (Value < 5% - Insuficiente)"
             else:
                 recomendacao_tipo = "NÃO RECOMENDADO"
                 recomendacao_icone = "❌"
