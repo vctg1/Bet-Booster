@@ -611,6 +611,11 @@ class CalculadoraApostasGUI:
                 'liga': liga,
                 'forca_ofensiva': forca_ofensiva,
                 'forca_defensiva': forca_defensiva,
+                'forma_recente': [],  # Histórico dos últimos jogos (W/D/L)
+                'gols_marcados_casa': None,  # Será preenchido via API
+                'gols_sofridos_casa': None,
+                'gols_marcados_fora': None,
+                'gols_sofridos_fora': None,
                 'data_cadastro': datetime.now().isoformat()
             }
             
@@ -960,6 +965,47 @@ class CalculadoraApostasGUI:
         
         return gols_esperados_a, gols_esperados_b
     
+    def formatar_forma_recente(self, forma_lista):
+        """
+        Formata a forma recente do time para exibição
+        
+        Args:
+            forma_lista: Lista com resultados ['W', 'D', 'L', ...]
+        
+        Returns:
+            str: Forma formatada com letras
+        """
+        if not forma_lista:
+            return "Não disponível"
+        
+        # Mapear resultados para letras
+        letras = {
+            'W': 'V',  # Vitória
+            'D': 'E',  # Empate
+            'L': 'D'   # Derrota
+        }
+        
+        # Pegar últimos 5 jogos
+        ultimos_jogos = forma_lista[:5] if len(forma_lista) >= 5 else forma_lista
+        
+        # Criar string formatada
+        forma_visual = ' '.join([letras.get(resultado, '?') for resultado in ultimos_jogos])
+        
+        # Calcular estatísticas da forma
+        total_jogos = len(ultimos_jogos)
+        vitorias = ultimos_jogos.count('W')
+        empates = ultimos_jogos.count('D')
+        derrotas = ultimos_jogos.count('L')
+        
+        # Calcular percentual de pontos (3 por vitória, 1 por empate)
+        pontos = (vitorias * 3) + (empates * 1)
+        pontos_possiveis = total_jogos * 3
+        aproveitamento = (pontos / pontos_possiveis * 100) if pontos_possiveis > 0 else 0
+        
+        forma_texto = f"{forma_visual} ({vitorias}V-{empates}E-{derrotas}D, {aproveitamento:.0f}%)"
+        
+        return forma_texto
+    
     def calcular_probabilidades_poisson(self, gols_esperados_a, gols_esperados_b, max_gols=6):
         """Calcula probabilidades usando distribuição de Poisson"""
         prob_vitoria_a = 0
@@ -1129,6 +1175,10 @@ ANÁLISE COMPLETA DO CONFRONTO
 │ Liga: {dados_a.get('liga', 'N/A'):<19} │ Liga: {dados_b.get('liga', 'N/A'):<19} │
 └─────────────────────────────────────────────────────────────┘
 
+🏃 FORMA RECENTE (Últimos jogos):
+• {time_a}: {self.formatar_forma_recente(dados_a.get('forma_recente', []))}
+• {time_b}: {self.formatar_forma_recente(dados_b.get('forma_recente', []))}
+
 ⚽ GOLS ESPERADOS (Modelo de Poisson):
 • {time_a}: {gols_esp_a:.2f} gols
 • {time_b}: {gols_esp_b:.2f} gols
@@ -1217,8 +1267,8 @@ ANÁLISE COMPLETA DO CONFRONTO
                                 f"🔥 FORTE: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
                         
-                        # ARRISCADA: NÃO é a maior probabilidade + Value >= 20% + Prob >= 15%
-                        elif i > 0 and vantagem >= 20.0 and resultado['prob_nossa'] >= 0.15:  # Posição 1 ou 2 + prob mín 15%
+                        # ARRISCADA: NÃO é a maior probabilidade + Value >= 20% + Prob >= 20%
+                        elif i > 0 and vantagem >= 20.0 and resultado['prob_nossa'] >= 0.20:  # Posição 1 ou 2 + prob mín 20%
                             recomendacoes_arriscadas.append(
                                 f"⚡ ARRISCADA: Apostar em {resultado['nome']} (Vantagem: {vantagem:.1f}%, Prob: {resultado['prob_nossa']:.1%})"
                             )
