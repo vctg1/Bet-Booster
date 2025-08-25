@@ -886,6 +886,10 @@ class CalculadoraApostasGUI:
                     # Fallback para dados gerais
                     gols_marcados = dados_time['gols_marcados']
                     gols_sofridos = dados_time['gols_sofridos']
+                
+                # Forma específica de casa ou forma geral
+                forma_recente = dados_time.get('forma_casa', dados_time.get('forma_recente', []))
+                
             else:  # fora
                 # Tentar usar dados específicos de fora
                 if 'gols_marcados_fora' in dados_time and dados_time['gols_marcados_fora'] is not None:
@@ -895,6 +899,9 @@ class CalculadoraApostasGUI:
                     # Fallback para dados gerais
                     gols_marcados = dados_time['gols_marcados']
                     gols_sofridos = dados_time['gols_sofridos']
+                
+                # Forma específica de fora ou forma geral
+                forma_recente = dados_time.get('forma_fora', dados_time.get('forma_recente', []))
             
             # Criar dados formatados
             dados_formatados = {
@@ -902,7 +909,8 @@ class CalculadoraApostasGUI:
                 'gols_sofridos': gols_sofridos,
                 'liga': dados_time.get('liga', 'N/A'),
                 'forca_ofensiva': None,  # Será calculado no método de gols esperados
-                'forca_defensiva': None  # Será calculado no método de gols esperados
+                'forca_defensiva': None,  # Será calculado no método de gols esperados
+                'forma_recente': forma_recente  # Incluir forma recente
             }
             
             return dados_formatados
@@ -915,7 +923,8 @@ class CalculadoraApostasGUI:
                 'gols_sofridos': dados_time['gols_sofridos'],
                 'liga': dados_time.get('liga', 'N/A'),
                 'forca_ofensiva': None,
-                'forca_defensiva': None
+                'forca_defensiva': None,
+                'forma_recente': dados_time.get('forma_recente', [])  # Incluir forma geral como fallback
             }
 
     def calcular_gols_esperados(self, time_a_dados, time_b_dados, aplicar_fator_casa=True):
@@ -975,8 +984,11 @@ class CalculadoraApostasGUI:
         Returns:
             str: Forma formatada com letras
         """
-        if not forma_lista:
-            return "Não disponível"
+        if forma_lista is None:
+            return "Dados indisponíveis"
+        
+        if not forma_lista or len(forma_lista) == 0:
+            return "Sem histórico"
         
         # Mapear resultados para letras
         letras = {
@@ -1113,15 +1125,22 @@ class CalculadoraApostasGUI:
                 if any(v is None for v in [dados_a['gols_marcados'], dados_a['gols_sofridos'], 
                                          dados_b['gols_marcados'], dados_b['gols_sofridos']]):
                     messagebox.showwarning("Aviso", "Dados casa/fora indisponíveis. Usando dados gerais.")
-                    dados_a = dados_time_a
-                    dados_b = dados_time_b
+                    # Garantir que dados gerais também tenham forma_recente
+                    dados_a = dict(dados_time_a)
+                    dados_b = dict(dados_time_b)
+                    # Garantir que forma_recente existe
+                    dados_a['forma_recente'] = dados_a.get('forma_recente', [])
+                    dados_b['forma_recente'] = dados_b.get('forma_recente', [])
                     info_tipo = "📊 Usando dados GERAIS dos times (fallback)"
                 else:
                     info_tipo = "📊 Usando dados CASA/FORA (Time A em casa, Time B fora)"
             else:
                 # Usar dados gerais
-                dados_a = dados_time_a
-                dados_b = dados_time_b
+                dados_a = dict(dados_time_a)
+                dados_b = dict(dados_time_b)
+                # Garantir que forma_recente existe
+                dados_a['forma_recente'] = dados_a.get('forma_recente', [])
+                dados_b['forma_recente'] = dados_b.get('forma_recente', [])
                 info_tipo = "📊 Usando dados GERAIS dos times"
             
             # Obter configuração do fator casa
@@ -2442,7 +2461,7 @@ Estatísticas estimadas:
             time_data['vitorias'] = stats_time['geral']['vitorias']
             time_data['empates'] = stats_time['geral']['empates']
             time_data['derrotas'] = stats_time['geral']['derrotas']
-            time_data['forma_geral'] = stats_time['geral']['forma']
+            time_data['forma_recente'] = stats_time['geral']['forma']  # CORRIGIDO: usar forma_recente
             
             # Calcular forças (baseado em dados gerais)
             media_liga = 1.2
