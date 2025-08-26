@@ -1,0 +1,135 @@
+Request URL:
+https://api.radaresportivo.com/public/prepRadar/261883
+Request Method:
+GET
+
+Response:
+{
+    "matchId": 262115,
+    "startTime": "2025-08-26T00:30:00.000Z", # Ajustar para GMT -3
+    "status": "not_started",    # Não está funcionando
+    "league": {
+        "id": 2235,
+        "name": "Brazil Serie B",
+        "relevance": "high",
+        "logoUrl": null,
+        "region": {
+            "id": 144,
+            "name": "Brazil",
+            "code": "BR"
+        }
+    },
+    "season": {
+        "id": 3117,
+        "name": "Brasileiro Serie B 2025",
+        "year": 2025
+    },
+    "homeTeam": {
+        "id": 65095,
+        "name": "Avai",
+        "logoUrl": "https://assets.radaresportivo.com/imgs/teams/9NvRDfALtmos4Omm.png",
+        "region": {
+            "id": 144,
+            "name": "Brazil",
+            "code": "BR"
+        }
+    },
+    "awayTeam": {
+        "id": 35099,
+        "name": "Amazonas FC",
+        "logoUrl": "https://assets.radaresportivo.com/imgs/teams/SOV78dif3WoiUrvj.png",
+        "region": {
+            "id": 144,
+            "name": "Brazil",
+            "code": "BR"
+        }
+    },
+    "sigmaId": "13616299",
+    "upsilonId": "OB_EV36713395",
+    "winner": null,
+    "goals": {
+        "home": {
+            "firstHalf": null,
+            "fullTime": null
+        },
+        "away": {
+            "firstHalf": null,
+            "fullTime": null
+        }
+    },
+    "cards": {
+        "home": {
+            "firstHalf": null,
+            "fullTime": null
+        },
+        "away": {
+            "firstHalf": null,
+            "fullTime": null
+        }
+    },
+    "corners": {
+        "home": {
+            "firstHalf": null,
+            "fullTime": null
+        },
+        "away": {
+            "firstHalf": null,
+            "fullTime": null
+        }
+    },
+    "marketOdds": {
+        "resultFt": {
+            "home": 1.615,
+            "draw": 3.7,
+            "away": 5.75
+        },
+        "goalsOu05HT": {
+            "over": 1.444,
+            "under": 2.625
+        },
+        "goalsOu15": {
+            "over": 1.363,
+            "under": 3
+        },
+        "goalsOu25": {
+            "over": 2.2,
+            "under": 1.65
+        },
+        "goalsOu35": {
+            "over": 4,
+            "under": 1.222
+        },
+        "btts": {
+            "yes": 2.2,
+            "no": 1.615
+        },
+        "drawNoBet": {
+            "home": 1.222,
+            "away": 4
+        },
+        "asianHandicap": [
+            {
+                "header": "1",
+                "name": "-0.5, -1.0",
+                "odds": 1.8
+            },
+            {
+                "header": "2",
+                "name": "+0.5, +1.0",
+                "odds": 2
+            }
+        ],
+        "asianTotalCorners": [
+            {
+                "header": "Over",
+                "name": "10.5",
+                "odds": 1.975
+            },
+            {
+                "header": "Under",
+                "name": "10.5",
+                "odds": 1.825
+            }
+        ]
+    }
+}

@@ -433,7 +433,8 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         
         # Verificar se os arquivos principais existem
         arquivos_necessarios = [
-            'src/interface_apostas.py',
+            'src/bet_booster_v2.py',  # V2 como principal
+            'src/interface_apostas.py',  # Legado
             'api/radar_esportivo_api.py',
             'api/sofascore_api.py',
             'assets/bet-booster.ico',
@@ -489,7 +490,7 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
             
             # Obter caminhos
             pasta_atual = os.path.dirname(os.path.abspath(__file__))
-            script_principal = os.path.join(pasta_atual, 'src', 'interface_apostas.py')
+            script_principal = os.path.join(pasta_atual, 'src', 'bet_booster_v2.py')  # V2 como principal
             icone_path = os.path.join(pasta_atual, 'assets', 'bet-booster.ico')
             
             # Obter desktop path
@@ -552,7 +553,7 @@ $Shortcut.Description = "Bet Booster - Sistema de Análise de Apostas"'''
         
         try:
             pasta_atual = os.path.dirname(os.path.abspath(__file__))
-            script_principal = os.path.join(pasta_atual, 'src', 'interface_apostas.py')
+            script_principal = os.path.join(pasta_atual, 'src', 'bet_booster_v2.py')  # V2 como principal
             
             # Tentar diferentes caminhos para área de trabalho
             desktop_paths = [
@@ -629,7 +630,7 @@ if exist "{script_principal}" (
         
         try:
             pasta_atual = os.path.dirname(os.path.abspath(__file__))
-            script_principal = os.path.join(pasta_atual, 'src', 'interface_apostas.py')
+            script_principal = os.path.join(pasta_atual, 'src', 'bet_booster_v2.py')  # V2 como principal
             
             # Tentar diferentes caminhos para área de trabalho
             desktop_paths = [
@@ -784,7 +785,7 @@ if __name__ == "__main__":
         """Executa o programa principal"""
         try:
             pasta_atual = os.path.dirname(os.path.abspath(__file__))
-            script_principal = os.path.join(pasta_atual, 'src', 'interface_apostas.py')
+            script_principal = os.path.join(pasta_atual, 'src', 'bet_booster_v2.py')  # V2 como principal
             
             if os.path.exists(script_principal):
                 self.root.quit()
