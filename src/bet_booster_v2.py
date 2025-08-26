@@ -14,6 +14,7 @@ import os
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 # Importar API Radar Esportivo
@@ -407,9 +408,56 @@ class BetBoosterV2:
         return self.processar_todos_jogos(jogos)
     
     def analisar_jogos_completo(self, jogos, periodo):
-        """Analisa completamente os primeiros jogos de uma lista (limitado a 50)"""
+        """Analisa completamente os primeiros jogos de uma lista (limitado a 50) - VERSÃO PARALELA"""
         apostas_analisadas = []
         jogos_com_odds = []  # Lista para jogos enriquecidos com odds
+        
+        print(f"🔥 Iniciando análise completa PARALELA de {len(jogos)} jogos ({periodo}) - limitado a 50 primeiros")
+        
+        # Usar ThreadPoolExecutor para processamento paralelo
+        max_workers = 10  # Máximo 10 threads simultâneas para não sobrecarregar API
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submeter todas as tarefas
+            futures = []
+            for i, jogo in enumerate(jogos):
+                future = executor.submit(self.processar_jogo_para_hot_paralelo, jogo, periodo)
+                futures.append(future)
+            
+            # Coletar resultados conforme completam
+            for i, future in enumerate(as_completed(futures)):
+                try:
+                    # Atualizar status de progresso
+                    progresso_base = 60 if periodo == 'Hoje' else 80
+                    progresso_atual = progresso_base + (i / len(jogos)) * 15  # 15% para cada período
+                    self.atualizar_loading(progresso_atual, f"[{i+1}/{len(jogos)}] Processando jogos...")
+                    
+                    # Obter resultado
+                    jogo_completo, recomendacoes = future.result(timeout=5)  # Timeout de 5 segundos por jogo
+                    
+                    # Adicionar resultados
+                    jogos_com_odds.append(jogo_completo)
+                    apostas_analisadas.extend(recomendacoes)
+                    
+                except Exception as e:
+                    print(f"❌ ERRO ao processar jogo {i+1}: {e}")
+                    # Adicionar jogo básico em caso de erro
+                    jogo_erro = {
+                        'id': f'erro_{i}',
+                        'home_team': 'Erro',
+                        'away_team': 'Erro',
+                        'periodo': periodo,
+                        'odds': None
+                    }
+                    jogos_com_odds.append(jogo_erro)
+        
+        print(f"🎯 CONCLUÍDO PARALELO: {len(jogos_com_odds)} jogos processados, {len(apostas_analisadas)} apostas hot geradas ({periodo})")
+        return apostas_analisadas, jogos_com_odds
+
+    def analisar_jogos_completo_original(self, jogos, periodo):
+        """Versão original - mantida como backup"""
+        apostas_analisadas = []
+        jogos_com_odds = []
         
         print(f"🔥 Iniciando análise completa de {len(jogos)} jogos ({periodo}) - limitado a 50 primeiros")
         
@@ -417,8 +465,6 @@ class BetBoosterV2:
             try:
                 # Atualizar status de progresso
                 progresso_base = 60 if periodo == 'Hoje' else 80
-                progresso_atual = progresso_base + (i / len(jogos)) * 15  # 15% para cada período
-                
                 # Garantir que temos um ID válido
                 jogo_id = jogo.get('id') if isinstance(jogo, dict) else str(jogo)
                 
@@ -718,6 +764,47 @@ class BetBoosterV2:
         self.filtro_tipo.set("Todos")
         self.aplicar_filtros_hot()
     
+    def filtrar_jogos(self, event=None):
+        """Filtra jogos na lista baseado no texto da pesquisa"""
+        try:
+            texto_pesquisa = self.entry_pesquisa_jogos.get().lower().strip()
+            
+            # Armazenar dados originais se ainda não foi feito
+            if not hasattr(self, 'jogos_originais'):
+                self.jogos_originais = []
+                for child in self.tree_jogos.get_children():
+                    values = self.tree_jogos.item(child)['values']
+                    self.jogos_originais.append(values)
+            
+            # Limpar tree
+            for item in self.tree_jogos.get_children():
+                self.tree_jogos.delete(item)
+            
+            # Filtrar e repovoar
+            jogos_filtrados = 0
+            for jogo_data in self.jogos_originais:
+                if len(jogo_data) >= 5:  # Verificar se tem dados suficientes
+                    casa = str(jogo_data[2]).lower()
+                    visitante = str(jogo_data[3]).lower()
+                    liga = str(jogo_data[4]).lower()
+                    
+                    # Verificar se o texto de pesquisa está em algum campo
+                    if (not texto_pesquisa or 
+                        texto_pesquisa in casa or 
+                        texto_pesquisa in visitante or 
+                        texto_pesquisa in liga):
+                        
+                        self.tree_jogos.insert('', 'end', values=jogo_data)
+                        jogos_filtrados += 1
+            
+        except Exception as e:
+            print(f"Erro ao filtrar jogos: {e}")
+    
+    def limpar_filtro_jogos(self):
+        """Limpa o filtro de pesquisa de jogos"""
+        self.entry_pesquisa_jogos.delete(0, tk.END)
+        self.filtrar_jogos()
+    
     def atualizar_apostas_hot_interface(self, apostas_lista=None):
         """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada por VALUE"""
         try:
@@ -787,12 +874,24 @@ class BetBoosterV2:
         self.status_jogos.pack(pady=5)
         
         # Frame da lista de jogos
+        # Frame para pesquisa
+        pesquisa_frame = ttk.LabelFrame(self.tab_jogos_dia, text="🔍 Filtrar Jogos", padding=10)
+        pesquisa_frame.pack(fill='x', padx=20, pady=(10, 5))
+        
+        ttk.Label(pesquisa_frame, text="Pesquisar por liga ou time:").pack(side='left', padx=(0, 10))
+        self.entry_pesquisa_jogos = ttk.Entry(pesquisa_frame, width=30)
+        self.entry_pesquisa_jogos.pack(side='left', padx=(0, 10))
+        self.entry_pesquisa_jogos.bind('<KeyRelease>', self.filtrar_jogos)
+        
+        ttk.Button(pesquisa_frame, text="🧹 Limpar", 
+                  command=self.limpar_filtro_jogos).pack(side='left', padx=5)
+        
         lista_frame = ttk.LabelFrame(self.tab_jogos_dia, text="Lista de Jogos", padding=10)
-        lista_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        lista_frame.pack(fill='both', expand=True, padx=20, pady=(5, 10))
         
         # Treeview para jogos
         columns = ('✓', 'Horário', 'Casa', 'Visitante', 'Liga', 'Odds H/E/A')
-        self.tree_jogos = ttk.Treeview(lista_frame, columns=columns, show='headings', height=15)
+        self.tree_jogos = ttk.Treeview(lista_frame, columns=columns, show='headings', height=12)
         
         for col in columns:
             self.tree_jogos.heading(col, text=col)
@@ -1533,6 +1632,68 @@ class BetBoosterV2:
         except Exception as e:
             self.status_hot.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
     
+    def processar_jogo_para_hot_paralelo(self, jogo, periodo):
+        """Versão paralela do processamento de jogo para hot"""
+        try:
+            # Extrair dados do jogo
+            if isinstance(jogo, dict):
+                jogo_id = jogo.get('id', 'N/A')
+                time_casa = jogo.get('home_team', jogo.get('time_casa', 'N/A'))
+                time_visitante = jogo.get('away_team', jogo.get('time_visitante', 'N/A'))
+            else:
+                jogo_id = str(jogo)
+                time_casa = 'N/A'
+                time_visitante = 'N/A'
+            
+            # Buscar odds detalhadas
+            odds_detalhadas = None
+            if jogo_id and jogo_id != 'N/A':
+                try:
+                    odds_detalhadas = self.buscar_odds_detalhadas(jogo_id)
+                except Exception as e:
+                    print(f"⚠️ Erro ao buscar odds para {jogo_id}: {e}")
+            
+            # Criar jogo completo sempre (com ou sem odds)
+            if odds_detalhadas:
+                jogo_completo = {**jogo, **odds_detalhadas} if isinstance(jogo, dict) else {**odds_detalhadas, 'id': jogo_id}
+                jogo_completo['periodo'] = periodo
+                print(f"✅ Jogo {time_casa} vs {time_visitante} - COM odds")
+            else:
+                jogo_completo = jogo.copy() if isinstance(jogo, dict) else {'id': jogo_id}
+                jogo_completo.update({
+                    'periodo': periodo,
+                    'odds': None,
+                    'home_team': time_casa,
+                    'away_team': time_visitante,
+                    'start_time': jogo_completo.get('start_time', ''),
+                    'league': jogo_completo.get('league', 'N/A')
+                })
+                print(f"⚠️ Jogo {time_casa} vs {time_visitante} - SEM odds (dados básicos)")
+            
+            # Processar apostas hot se tiver dados válidos
+            recomendacoes = []
+            if isinstance(jogo, dict):
+                jogo['periodo'] = periodo
+                try:
+                    recomendacoes = self.processar_jogo_para_hot(jogo)
+                    print(f"📊 {len(recomendacoes)} apostas hot geradas")
+                except Exception as e:
+                    print(f"⚠️ Erro ao processar apostas hot: {e}")
+            
+            return jogo_completo, recomendacoes
+            
+        except Exception as e:
+            print(f"❌ ERRO no processamento paralelo: {e}")
+            # Retornar jogo básico em caso de erro
+            jogo_erro = {
+                'id': jogo.get('id') if isinstance(jogo, dict) else str(jogo),
+                'home_team': 'Erro',
+                'away_team': 'Erro',
+                'periodo': periodo,
+                'odds': None
+            }
+            return jogo_erro, []
+
     def processar_jogo_para_hot(self, jogo):
         """Processa um jogo para gerar recomendações hot"""
         try:
@@ -1662,6 +1823,7 @@ class BetBoosterV2:
                             'value': value,
                             'value_percent': value_percent,
                             'prob_calculada': prob_calc,
+                            'nossa_prob': prob_calc,  # Adicionar para compatibilidade
                             'prob_implicita': prob_impl,
                             'forca_recomendacao': forca,
                             'match_id': odds_detalhadas['match_id'],
@@ -1719,6 +1881,7 @@ class BetBoosterV2:
                             'value': value,
                             'value_percent': value_percent,
                             'prob_calculada': prob_calc,
+                            'nossa_prob': prob_calc,  # Adicionar para compatibilidade
                             'prob_implicita': prob_impl,
                             'forca_recomendacao': forca,
                             'match_id': odds_detalhadas['match_id'],
@@ -1903,6 +2066,9 @@ class BetBoosterV2:
         if not hasattr(self, 'jogos_selecionados'):
             self.jogos_selecionados = []
         
+        # Armazenar dados originais para filtro
+        self.jogos_originais = []
+        
         # Adicionar jogos
         for i, jogo in enumerate(self.jogos_do_dia):
             # Checkbox de seleção
@@ -1944,6 +2110,9 @@ class BetBoosterV2:
             item_id = self.tree_jogos.insert('', 'end', values=(
                 checkbox, horario, casa, visitante, liga, odds_text
             ))
+            
+            # Armazenar dados originais para filtro
+            self.jogos_originais.append((checkbox, horario, casa, visitante, liga, odds_text))
         
         # Atualizar status da seleção
         self.atualizar_status_selecao()
@@ -2288,7 +2457,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         # Abrir janela de cálculo
         window = tk.Toplevel(self.root)
         window.title("📊 Cálculo de Retorno - Múltipla")
-        window.geometry("500x600")
+        window.geometry("650x700")
         window.transient(self.root)
         window.grab_set()
         
@@ -2300,18 +2469,30 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         resumo_frame = ttk.LabelFrame(window, text="Resumo da Múltipla", padding=15)
         resumo_frame.pack(fill='x', padx=20, pady=10)
         
-        # Calcular odd total
+        # Calcular odd total e probabilidade nossa
         odd_total = 1.0
+        prob_nossa_total = 1.0
         for aposta in self.apostas_multipla:
             odd_total *= aposta['odd']
+            # Calcular nossa probabilidade multiplicando as individuais
+            nossa_prob_valor = aposta.get('nossa_prob') or aposta.get('prob_calculada')
+            if nossa_prob_valor:
+                # Converter percentual para decimal se necessário
+                nossa_prob = float(str(nossa_prob_valor).replace('%', ''))
+                if nossa_prob > 1:  # Se está em percentual
+                    nossa_prob = nossa_prob / 100
+                prob_nossa_total *= nossa_prob
         
         prob_total = (1 / odd_total * 100) if odd_total > 0 else 0
+        prob_nossa_percentual = prob_nossa_total * 100
         
         ttk.Label(resumo_frame, text=f"📋 Apostas: {len(self.apostas_multipla)}", 
                  style='Subtitle.TLabel').pack(anchor='w')
         ttk.Label(resumo_frame, text=f"🎯 Odd Total: {odd_total:.2f}", 
                  style='Subtitle.TLabel').pack(anchor='w')
-        ttk.Label(resumo_frame, text=f"📊 Probabilidade: {prob_total:.1f}%", 
+        ttk.Label(resumo_frame, text=f"📊 Nossa Probabilidade: {prob_nossa_percentual:.1f}%", 
+                 style='Success.TLabel').pack(anchor='w')
+        ttk.Label(resumo_frame, text=f"📈 Prob. Implícita (Odds): {prob_total:.1f}%", 
                  style='Subtitle.TLabel').pack(anchor='w')
         
         # Input de valor
@@ -2345,11 +2526,19 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
 """
                 
                 for i, aposta in enumerate(self.apostas_multipla, 1):
+                    # Buscar nossa probabilidade com fallback
+                    nossa_prob_valor = aposta.get('nossa_prob') or aposta.get('prob_calculada') or 'N/A'
+                    if nossa_prob_valor != 'N/A':
+                        nossa_prob_str = f"{nossa_prob_valor:.1f}%"
+                    else:
+                        nossa_prob_str = "N/A"
+                    
                     relatorio += f"""
 {i}. {aposta['jogo']}
    💰 Aposta: {aposta['aposta']}
    🎯 Odd: {aposta['odd']:.2f}
-   📊 Prob. Implícita: {aposta['prob_implicita']:.1f}%
+   📊 Nossa Prob: {nossa_prob_str}
+   📈 Prob. Implícita: {aposta['prob_implicita']:.1f}%
 """
                 
                 relatorio += f"""
@@ -2359,7 +2548,8 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
 
 💵 Valor Apostado: R$ {valor:.2f}
 🎯 Odd Total: {odd_total:.2f}
-📊 Probabilidade Total: {prob_total:.1f}%
+📊 Nossa Probabilidade: {prob_nossa_percentual:.1f}%
+📈 Prob. Implícita (Odds): {prob_total:.1f}%
 
 💰 Retorno Bruto: R$ {retorno_bruto:.2f}
 💎 Lucro Líquido: R$ {lucro:.2f}
@@ -2499,7 +2689,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         """Abre janela para calcular aposta simples"""
         window = tk.Toplevel(self.root)
         window.title("💰 Aposta Simples")
-        window.geometry("500x600")
+        window.geometry("600x650")
         window.transient(self.root)
         window.grab_set()
         
@@ -2586,7 +2776,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         """Abre janela para selecionar aposta para múltipla"""
         window = tk.Toplevel(self.root)
         window.title("📋 Adicionar à Múltipla")
-        window.geometry("400x400")
+        window.geometry("550x500")
         window.transient(self.root)
         window.grab_set()
         
@@ -2653,7 +2843,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         """Abre janela para editar informações do jogo ao vivo"""
         window = tk.Toplevel(self.root)
         window.title("⚡ Editar Jogo Ao Vivo")
-        window.geometry("400x500")
+        window.geometry("550x600")
         window.transient(self.root)
         window.grab_set()
         
@@ -2837,7 +3027,8 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
             'aposta': tipo_aposta,
             'tipo': tipo_recomendacao,
             'odd': odd,
-            'prob_calculada': nossa_prob,
+            'nossa_prob': nossa_prob,
+            'prob_calculada': nossa_prob,  # Manter ambos por compatibilidade
             'prob_implicita': prob_implicita,
             'match_id': jogo.get('id', ''),
             'liga': odds_detalhadas.get('league', ''),
