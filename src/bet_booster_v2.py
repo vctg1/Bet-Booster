@@ -126,7 +126,7 @@ class BetBoosterV2:
             print(f"⚠️ Erro ao limpar cache antigo: {e}")
     
     def verificar_cache_diario(self):
-        """Verifica se precisa atualizar cache diário"""
+        """Verifica se precisa atualizar cache diário - só atualiza se não houver dados de hoje ou amanhã"""
         try:
             data_hoje = datetime.now().strftime('%Y-%m-%d')
             data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -134,21 +134,25 @@ class BetBoosterV2:
             cache_hoje = self.carregar_jogos_cache(data_hoje)
             cache_amanha = self.carregar_jogos_cache(data_amanha)
             
-            # Verificar se cache de hoje existe e é do dia atual
-            cache_hoje_valido = False
-            if cache_hoje:
-                cache_data = datetime.fromisoformat(cache_hoje['timestamp'])
-                if cache_data.date() == datetime.now().date():
-                    cache_hoje_valido = True
+            # Cache é válido se existir - não há expiração por tempo
+            cache_hoje_valido = cache_hoje is not None
+            cache_amanha_valido = cache_amanha is not None
             
-            # Verificar se cache de amanhã existe e é recente
-            cache_amanha_valido = False
-            if cache_amanha:
-                cache_data = datetime.fromisoformat(cache_amanha['timestamp'])
-                if cache_data.date() >= datetime.now().date():
-                    cache_amanha_valido = True
+            if cache_hoje_valido:
+                print(f"📁 Cache de hoje encontrado: {len(cache_hoje['jogos'])} jogos")
+            else:
+                print("🔄 Cache de hoje não encontrado - será carregado da API")
+                
+            if cache_amanha_valido:
+                print(f"📁 Cache de amanhã encontrado: {len(cache_amanha['jogos'])} jogos")
+            else:
+                print("🔄 Cache de amanhã não encontrado - será carregado da API")
             
             return cache_hoje_valido, cache_amanha_valido
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao verificar cache diário: {e}")
+            return False, False
             
         except Exception as e:
             print(f"⚠️ Erro ao verificar cache diário: {e}")
@@ -179,7 +183,7 @@ class BetBoosterV2:
             return False
     
     def carregar_jogos_cache(self, data):
-        """Carrega jogos do cache se disponível e válido"""
+        """Carrega jogos do cache se disponível"""
         try:
             cache_file = self.get_cache_file_path(data)
             
@@ -189,17 +193,11 @@ class BetBoosterV2:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
             
-            # Verificar se cache tem menos de 24 horas
+            # Cache sem expiração por tempo - sempre válido se existir
             timestamp = datetime.fromisoformat(cache_data['timestamp'])
-            agora = datetime.now()
-            diferenca = agora - timestamp
-            
-            if diferenca.total_seconds() > 86400:  # 24 horas = 86400 segundos
-                print(f"⏰ Cache expirado ({diferenca.total_seconds()/60:.1f} min). Será recarregado.")
-                return None
             
             print(f"✅ Cache válido carregado: {cache_data['total_jogos']} jogos, {cache_data['total_apostas_hot']} apostas hot")
-            print(f"   Última atualização: {timestamp.strftime('%H:%M:%S')}")
+            print(f"   Última atualização: {timestamp.strftime('%d/%m/%Y %H:%M:%S')}")
             
             return {
                 'jogos': cache_data.get('jogos', []),
@@ -210,35 +208,10 @@ class BetBoosterV2:
         except Exception as e:
             print(f"❌ Erro ao carregar cache: {e}")
             return None
-    
-    def limpar_cache_antigo(self):
-        """Remove arquivos de cache mais antigos que 24 horas"""
-        try:
-            cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
-            if not os.path.exists(cache_dir):
-                return
             
-            agora = datetime.now()
-            arquivos_removidos = 0
-            
-            for filename in os.listdir(cache_dir):
-                if filename.startswith('jogos_') and filename.endswith('.json'):
-                    filepath = os.path.join(cache_dir, filename)
-                    
-                    # Verificar idade do arquivo
-                    stat = os.stat(filepath)
-                    criacao = datetime.fromtimestamp(stat.st_mtime)
-                    idade = agora - criacao
-                    
-                    if idade.total_seconds() > 86400:  # 24 horas
-                        os.remove(filepath)
-                        arquivos_removidos += 1
-            
-            if arquivos_removidos > 0:
-                print(f"🧹 {arquivos_removidos} arquivos de cache antigos removidos")
-                
         except Exception as e:
-            print(f"❌ Erro ao limpar cache: {e}")
+            print(f"❌ Erro ao carregar cache: {e}")
+            return None
     
     def atualizar_jogos_do_dia_com_cache(self, data):
         """Atualiza jogos do dia usando cache quando possível"""
@@ -804,7 +777,7 @@ class BetBoosterV2:
         linha2.pack(fill='x', pady=5)
         
         ttk.Label(linha2, text="Modo:").pack(side='left', padx=(0, 5))
-        self.modo_analise = ttk.Combobox(linha2, values=["Dados Gerais", "Casa/Fora"], 
+        self.modo_analise = ttk.Combobox(linha2, values=["Dados Gerais"], 
                                         state="readonly", width=15)
         self.modo_analise.pack(side='left', padx=(0, 10))
         self.modo_analise.set("Dados Gerais")
@@ -935,38 +908,6 @@ class BetBoosterV2:
         self.entry_derrotas = ttk.Entry(linha2, width=8)
         self.entry_derrotas.pack(side='left', padx=10)
         
-        # Frame de estatísticas casa
-        stats_casa_frame = ttk.LabelFrame(cadastro_frame, text="Estatísticas em Casa", padding=10)
-        stats_casa_frame.pack(fill='x', pady=10)
-        
-        # Linha casa 1: Gols
-        linha_casa1 = ttk.Frame(stats_casa_frame)
-        linha_casa1.pack(fill='x', pady=2)
-        
-        ttk.Label(linha_casa1, text="Gols Marcados Casa:").pack(side='left')
-        self.entry_gols_marcados_casa = ttk.Entry(linha_casa1, width=10)
-        self.entry_gols_marcados_casa.pack(side='left', padx=(10, 20))
-        
-        ttk.Label(linha_casa1, text="Gols Sofridos Casa:").pack(side='left')
-        self.entry_gols_sofridos_casa = ttk.Entry(linha_casa1, width=10)
-        self.entry_gols_sofridos_casa.pack(side='left', padx=10)
-        
-        # Frame de estatísticas fora
-        stats_fora_frame = ttk.LabelFrame(cadastro_frame, text="Estatísticas Fora de Casa", padding=10)
-        stats_fora_frame.pack(fill='x', pady=10)
-        
-        # Linha fora 1: Gols
-        linha_fora1 = ttk.Frame(stats_fora_frame)
-        linha_fora1.pack(fill='x', pady=2)
-        
-        ttk.Label(linha_fora1, text="Gols Marcados Fora:").pack(side='left')
-        self.entry_gols_marcados_fora = ttk.Entry(linha_fora1, width=10)
-        self.entry_gols_marcados_fora.pack(side='left', padx=(10, 20))
-        
-        ttk.Label(linha_fora1, text="Gols Sofridos Fora:").pack(side='left')
-        self.entry_gols_sofridos_fora = ttk.Entry(linha_fora1, width=10)
-        self.entry_gols_sofridos_fora.pack(side='left', padx=10)
-        
         # Forma recente
         forma_frame = ttk.LabelFrame(cadastro_frame, text="Forma Recente (últimos 5 jogos)", padding=10)
         forma_frame.pack(fill='x', pady=10)
@@ -1052,7 +993,7 @@ class BetBoosterV2:
         linha_config.pack(fill='x', pady=5)
         
         ttk.Label(linha_config, text="Modo de Análise:").pack(side='left')
-        self.combo_modo_analise = ttk.Combobox(linha_config, values=["Dados Gerais", "Casa/Fora"], 
+        self.combo_modo_analise = ttk.Combobox(linha_config, values=["Dados Gerais"], 
                                               state="readonly", width=15)
         self.combo_modo_analise.pack(side='left', padx=(10, 20))
         self.combo_modo_analise.set("Dados Gerais")
@@ -1089,11 +1030,6 @@ class BetBoosterV2:
                 empates = int(self.entry_empates.get() or "0")
                 derrotas = int(self.entry_derrotas.get() or "0")
                 
-                gols_marcados_casa = float(self.entry_gols_marcados_casa.get() or "0")
-                gols_sofridos_casa = float(self.entry_gols_sofridos_casa.get() or "0")
-                gols_marcados_fora = float(self.entry_gols_marcados_fora.get() or "0")
-                gols_sofridos_fora = float(self.entry_gols_sofridos_fora.get() or "0")
-                
             except ValueError:
                 messagebox.showerror("Erro", "Valores numéricos inválidos")
                 return
@@ -1123,10 +1059,6 @@ class BetBoosterV2:
                 'vitorias': vitorias,
                 'empates': empates,
                 'derrotas': derrotas,
-                'gols_marcados_casa': gols_marcados_casa,
-                'gols_sofridos_casa': gols_sofridos_casa,
-                'gols_marcados_fora': gols_marcados_fora,
-                'gols_sofridos_fora': gols_sofridos_fora,
                 'forma_recente': forma_recente,
                 'forca_ofensiva': gols_marcados / 1.2 if gols_marcados > 0 else 1.0,
                 'forca_defensiva': gols_sofridos / 1.2 if gols_sofridos > 0 else 1.0
@@ -1152,8 +1084,6 @@ class BetBoosterV2:
             self.entry_nome_time, self.entry_liga_time,
             self.entry_gols_marcados, self.entry_gols_sofridos,
             self.entry_vitorias, self.entry_empates, self.entry_derrotas,
-            self.entry_gols_marcados_casa, self.entry_gols_sofridos_casa,
-            self.entry_gols_marcados_fora, self.entry_gols_sofridos_fora,
             self.entry_forma_recente
         ]
         
@@ -1230,14 +1160,6 @@ class BetBoosterV2:
 🤝 Empates: {dados.get('empates', 0)}
 ❌ Derrotas: {dados.get('derrotas', 0)}
 
-🏠 EM CASA:
-⚽ Gols Marcados: {dados.get('gols_marcados_casa', 0):.2f}
-🥅 Gols Sofridos: {dados.get('gols_sofridos_casa', 0):.2f}
-
-✈️ FORA DE CASA:
-⚽ Gols Marcados: {dados.get('gols_marcados_fora', 0):.2f}
-🥅 Gols Sofridos: {dados.get('gols_sofridos_fora', 0):.2f}
-
 🔥 FORMA RECENTE:
 {' '.join(dados.get('forma_recente', ['N/A']))}
 """
@@ -1274,19 +1196,12 @@ class BetBoosterV2:
         dados_casa = self.times_database[nome_casa]
         dados_visitante = self.times_database[nome_visitante]
         
-        # Selecionar dados baseado no modo
-        if modo == "Casa/Fora":
-            gols_casa = dados_casa.get('gols_marcados_casa', dados_casa.get('gols_marcados', 0))
-            gols_sofridos_casa = dados_casa.get('gols_sofridos_casa', dados_casa.get('gols_sofridos', 0))
-            gols_visitante = dados_visitante.get('gols_marcados_fora', dados_visitante.get('gols_marcados', 0))
-            gols_sofridos_visitante = dados_visitante.get('gols_sofridos_fora', dados_visitante.get('gols_sofridos', 0))
-            modo_texto = "DADOS CASA/FORA"
-        else:
-            gols_casa = dados_casa.get('gols_marcados', 0)
-            gols_sofridos_casa = dados_casa.get('gols_sofridos', 0)
-            gols_visitante = dados_visitante.get('gols_marcados', 0)
-            gols_sofridos_visitante = dados_visitante.get('gols_sofridos', 0)
-            modo_texto = "DADOS GERAIS"
+        # Usar APENAS dados gerais (anyField)
+        gols_casa = dados_casa.get('gols_marcados', 0)
+        gols_sofridos_casa = dados_casa.get('gols_sofridos', 0)
+        gols_visitante = dados_visitante.get('gols_marcados', 0)
+        gols_sofridos_visitante = dados_visitante.get('gols_sofridos', 0)
+        modo_texto = "DADOS GERAIS"
         
         # Calcular probabilidades
         probabilidades = self.calcular_probabilidades_confronto_manual(
@@ -1472,12 +1387,19 @@ class BetBoosterV2:
         multipla_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
         # Lista de apostas na múltipla
-        columns_multipla = ('Jogo', 'Aposta', 'Odd', 'Prob. Implícita', 'Status')
+        columns_multipla = ('Jogo', 'Aposta', 'Odd', 'Nossa Prob', 'Prob. Implícita', 'Status')
         self.tree_multipla = ttk.Treeview(multipla_frame, columns=columns_multipla, show='headings', height=10)
         
         for col in columns_multipla:
             self.tree_multipla.heading(col, text=col)
-            self.tree_multipla.column(col, width=150)
+            if col == 'Jogo':
+                self.tree_multipla.column(col, width=200)
+            elif col == 'Aposta':
+                self.tree_multipla.column(col, width=120)
+            elif col in ['Nossa Prob', 'Prob. Implícita']:
+                self.tree_multipla.column(col, width=100)
+            else:
+                self.tree_multipla.column(col, width=80)
         
         self.tree_multipla.pack(fill='both', expand=True)
         
@@ -1488,7 +1410,10 @@ class BetBoosterV2:
         self.label_odd_total = ttk.Label(info_frame, text="Odd Total: 1.00", style='Subtitle.TLabel')
         self.label_odd_total.pack(side='left', padx=10)
         
-        self.label_prob_total = ttk.Label(info_frame, text="Probabilidade: 100%", style='Subtitle.TLabel')
+        self.label_prob_nossa = ttk.Label(info_frame, text="📊 Nossa Prob: 100%", style='Success.TLabel')
+        self.label_prob_nossa.pack(side='left', padx=10)
+        
+        self.label_prob_total = ttk.Label(info_frame, text="🎯 Prob. Implícita: 100%", style='Subtitle.TLabel')
         self.label_prob_total.pack(side='left', padx=10)
         
         # Botões de controle
@@ -1632,9 +1557,9 @@ class BetBoosterV2:
             if not stats:
                 return []
             
-            # Calcular probabilidades
-            modo = self.modo_analise.get() if hasattr(self, 'modo_analise') else "detalhado"
-            probabilidades = self.calcular_probabilidades_jogo(stats, modo)
+            # Calcular probabilidades - USAR A MESMA FUNÇÃO DOS JOGOS DO DIA
+            modo = self.modo_analise.get() if hasattr(self, 'modo_analise') else "Geral"
+            probabilidades = self.calcular_probabilidades_completas(stats, modo)
             
             # Analisar apostas recomendadas
             recomendacoes = self.analisar_apostas_recomendadas(
@@ -1716,13 +1641,13 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar regras para apostas de vencedor:
-                    # Forte: value >= 5% E probabilidade IMPLÍCITA >= 33%
-                    # Arriscada: value >= 15% E probabilidade IMPLÍCITA < 33%
+                    # Forte: value >= 5% E probabilidade IMPLÍCITA >= 30%
+                    # Arriscada: value >= 15% E probabilidade IMPLÍCITA < 30% E prob >= 10%
                     tipo_recomendacao = None
                     
-                    if value_percent >= 5 and prob_impl >= 33:
+                    if value_percent >= 5 and prob_impl >= 30:
                         tipo_recomendacao = "FORTE"
-                    elif value_percent >= 15 and prob_impl < 33:
+                    elif value_percent >= 15 and prob_impl < 30 and prob_impl >= 10:
                         tipo_recomendacao = "ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na nossa probabilidade
@@ -1773,13 +1698,13 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar regras para apostas Over/Under:
-                    # Forte: probabilidade IMPLÍCITA >= 33% E Value bet >= 5%
-                    # Arriscada: probabilidade IMPLÍCITA < 33% E Value bet >= 15%
+                    # Forte: probabilidade IMPLÍCITA >= 30% E Value bet >= 5%
+                    # Arriscada: probabilidade IMPLÍCITA < 30% E prob >= 10% E Value bet >= 15%
                     tipo_recomendacao = None
                     
-                    if prob_impl >= 33 and value_percent >= 5:
+                    if prob_impl >= 30 and value_percent >= 5:
                         tipo_recomendacao = "FORTE"
-                    elif prob_impl < 33 and value_percent >= 15:
+                    elif prob_impl < 30 and prob_impl >= 10 and value_percent >= 15:
                         tipo_recomendacao = "ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na nossa probabilidade
@@ -2287,17 +2212,6 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 prob_under += (gols_esperados ** k * exp(-gols_esperados)) / factorial(k)
             return prob_under * 100
     
-    def calcular_probabilidades_jogo(self, stats, modo):
-        """Calcula probabilidades de um jogo baseado nas estatísticas"""
-        # Implementação será adaptada dos métodos existentes
-        # Por agora, retorna valores de exemplo
-        return {
-            'vitoria_casa': 40.0,
-            'empate': 30.0,
-            'vitoria_visitante': 30.0,
-            'gols_esperados_total': 2.5
-        }
-    
     def configurar_filtros_hot(self):
         """Configura filtros para apostas hot"""
         messagebox.showinfo("Info", "Funcionalidade de filtros será implementada")
@@ -2325,15 +2239,32 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 aposta['jogo'],
                 aposta['aposta'],
                 f"{aposta['odd']:.2f}",
+                f"{aposta.get('prob_calculada', 0):.1f}%",
                 f"{aposta['prob_implicita']:.1f}%",
                 aposta['tipo']
             ))
             odd_total *= aposta['odd']
         
         # Atualizar labels
-        prob_total = (1 / odd_total * 100) if odd_total > 0 else 0
+        prob_total_implicita = (1 / odd_total * 100) if odd_total > 0 else 0
+        
+        # Calcular nossa probabilidade combinada
+        prob_nossa_combinada = 1.0
+        tem_prob_calculada = False
+        for aposta in self.apostas_multipla:
+            nossa_prob = aposta.get('prob_calculada', 0)
+            if nossa_prob > 0:
+                prob_nossa_combinada *= (nossa_prob / 100)
+                tem_prob_calculada = True
+        
+        if tem_prob_calculada:
+            prob_nossa_combinada *= 100
+        else:
+            prob_nossa_combinada = prob_total_implicita  # Fallback para prob implícita
+        
         self.label_odd_total.config(text=f"Odd Total: {odd_total:.2f}")
-        self.label_prob_total.config(text=f"Probabilidade: {prob_total:.1f}%")
+        self.label_prob_nossa.config(text=f"📊 Nossa Prob: {prob_nossa_combinada:.1f}%")
+        self.label_prob_total.config(text=f"🎯 Prob. Implícita: {prob_total_implicita:.1f}%")
     
     def limpar_multipla(self):
         """Limpa a múltipla atual"""
@@ -2844,14 +2775,69 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         # Calcular probabilidade implícita
         prob_implicita = (1 / odd * 100) if odd > 0 else 0
         
-        # Determinar se é arriscada (seria necessário comparar com outras odds)
-        tipo_recomendacao = "FORTE"  # Simplificado por agora
+        # Calcular nossa probabilidade baseada no tipo de aposta
+        nossa_prob = 0
+        try:
+            # Primeiro, tentar obter estatísticas do jogo atual
+            match_id = jogo.get('id')
+            stats = None
+            
+            # Se já temos stats cached do jogo selecionado e é o mesmo jogo
+            if (hasattr(self, 'jogo_selecionado_stats') and 
+                self.jogo_selecionado_stats and 
+                hasattr(self, 'jogo_selecionado_index') and
+                self.jogos_do_dia[self.jogo_selecionado_index].get('id') == match_id):
+                stats = self.jogo_selecionado_stats
+            else:
+                # Buscar estatísticas automaticamente para este jogo
+                print(f"📊 Buscando estatísticas detalhadas para Match ID: {match_id}")
+                stats = self.api.buscar_estatisticas_detalhadas_time(match_id)
+            
+            if stats:
+                probabilidades = self.calcular_probabilidades_completas(stats, "Geral")
+                
+                # Mapear tipo de aposta para nossa probabilidade
+                if tipo_aposta == "Vitória Casa":
+                    nossa_prob = probabilidades.get('vitoria_casa', 0)
+                elif tipo_aposta == "Vitória Visitante":
+                    nossa_prob = probabilidades.get('vitoria_visitante', 0)
+                elif tipo_aposta == "Empate":
+                    nossa_prob = probabilidades.get('empate', 0)
+                elif "Over 2.5" in tipo_aposta:
+                    nossa_prob = probabilidades.get('over_25', 0)
+                elif "Under 2.5" in tipo_aposta:
+                    nossa_prob = probabilidades.get('under_25', 0)
+                else:
+                    nossa_prob = prob_implicita  # Fallback para prob implícita
+            else:
+                print(f"⚠️ Estatísticas não encontradas para o jogo, usando probabilidade implícita")
+                nossa_prob = prob_implicita  # Fallback se não conseguir obter stats
+        except Exception as e:
+            print(f"❌ Erro ao calcular nossa probabilidade: {e}")
+            nossa_prob = prob_implicita  # Fallback em caso de erro
+        
+        # Determinar tipo de recomendação baseado no value bet
+        tipo_recomendacao = "FORTE"  # Default
+        if nossa_prob > 0 and odd > 0:
+            # Calcular value bet
+            value = odd * (nossa_prob / 100)
+            value_percent = (value - 1) * 100
+            
+            # Aplicar regras: Forte: value >= 5% E prob >= 30%
+            # Arriscada: value >= 15% E prob < 30% E prob >= 10%
+            if value_percent >= 5 and nossa_prob >= 30:
+                tipo_recomendacao = "FORTE"
+            elif value_percent >= 15 and nossa_prob < 30 and nossa_prob >= 10:
+                tipo_recomendacao = "ARRISCADA"
+            else:
+                tipo_recomendacao = "FORTE"  # Padrão para apostas não classificadas
         
         aposta_detalhada = {
             'jogo': f"{casa} vs {visitante}",
             'aposta': tipo_aposta,
             'tipo': tipo_recomendacao,
             'odd': odd,
+            'prob_calculada': nossa_prob,
             'prob_implicita': prob_implicita,
             'match_id': jogo.get('id', ''),
             'liga': odds_detalhadas.get('league', ''),
@@ -2868,20 +2854,14 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         self.notebook.select(4)  # Índice da aba múltiplas
     
     def calcular_probabilidades_completas(self, stats, modo):
-        """Calcula probabilidades completas baseado nas estatísticas"""
+        """Calcula probabilidades completas baseado nas estatísticas - USANDO APENAS ANYFIELD"""
         try:
-            if modo == "Casa/Fora":
-                # Usar estatísticas específicas de casa/fora
-                gols_casa = stats['time_casa']['casa']['gols_marcados']
-                gols_sofridos_casa = stats['time_casa']['casa']['gols_sofridos']
-                gols_visitante = stats['time_visitante']['fora']['gols_marcados']
-                gols_sofridos_visitante = stats['time_visitante']['fora']['gols_sofridos']
-            else:
-                # Usar estatísticas gerais
-                gols_casa = stats['time_casa']['geral']['gols_marcados']
-                gols_sofridos_casa = stats['time_casa']['geral']['gols_sofridos']
-                gols_visitante = stats['time_visitante']['geral']['gols_marcados']
-                gols_sofridos_visitante = stats['time_visitante']['geral']['gols_sofridos']
+            # SEMPRE USAR ESTATÍSTICAS GERAIS (ANYFIELD) INDEPENDENTE DO MODO
+            # sameField só é usado para cadastrar dados, não para cálculos
+            gols_casa = stats['time_casa']['geral']['gols_marcados']
+            gols_sofridos_casa = stats['time_casa']['geral']['gols_sofridos']
+            gols_visitante = stats['time_visitante']['geral']['gols_marcados']
+            gols_sofridos_visitante = stats['time_visitante']['geral']['gols_sofridos']
             
             # Fórmula de Poisson para gols esperados
             gols_esperados_casa = (gols_casa + gols_sofridos_visitante) / 2
@@ -3015,25 +2995,25 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 is_vencedor = tipo_aposta in ["Vitória Casa", "Empate", "Vitória Visitante"]
                 
                 if is_vencedor:
-                    # Regras para vencedor: Forte: value >= 5% E prob_impl >= 33%
-                    # Arriscada: value >= 15% E prob_impl < 33%
-                    if value_percent >= 5 and prob_implicita >= 33:
+                    # Regras para vencedor: Forte: value >= 5% E prob_impl >= 30%
+                    # Arriscada: value >= 15% E prob_impl < 30% E prob_impl >= 10%
+                    if value_percent >= 5 and prob_implicita >= 30:
                         relatorio += "✅ RECOMENDAÇÃO: APOSTA FORTE!\n"
-                        relatorio += "🔥 Value >= 5% com probabilidade implícita >= 33%\n"
-                    elif value_percent >= 15 and prob_implicita < 33:
+                        relatorio += "🔥 Value >= 5% com probabilidade implícita >= 30%\n"
+                    elif value_percent >= 15 and prob_implicita < 30 and prob_implicita >= 10:
                         relatorio += "⚠️ RECOMENDAÇÃO: APOSTA ARRISCADA!\n"
-                        relatorio += "🟡 Value >= 15% com probabilidade implícita < 33%\n"
+                        relatorio += "🟡 Value >= 15% com probabilidade implícita entre 10% e 30%\n"
                     else:
                         relatorio += "❌ NÃO RECOMENDADO - Não atende aos critérios\n"
                 else:
-                    # Regras para Over/Under: Forte: prob_impl >= 33% E value >= 5%
-                    # Arriscada: prob_impl < 33% E value >= 15%
-                    if prob_implicita >= 33 and value_percent >= 5:
+                    # Regras para Over/Under: Forte: prob_impl >= 30% E value >= 5%
+                    # Arriscada: prob_impl < 30% E prob_impl >= 10% E value >= 15%
+                    if prob_implicita >= 30 and value_percent >= 5:
                         relatorio += "✅ RECOMENDAÇÃO: APOSTA FORTE!\n"
-                        relatorio += "🔥 Probabilidade implícita >= 33% com value >= 5%\n"
-                    elif prob_implicita < 33 and value_percent >= 15:
+                        relatorio += "🔥 Probabilidade implícita >= 30% com value >= 5%\n"
+                    elif prob_implicita < 30 and prob_implicita >= 10 and value_percent >= 15:
                         relatorio += "⚠️ RECOMENDAÇÃO: APOSTA ARRISCADA!\n"
-                        relatorio += "🟡 Probabilidade implícita < 33% com value >= 15%\n"
+                        relatorio += "🟡 Probabilidade implícita entre 10% e 30% com value >= 15%\n"
                     else:
                         relatorio += "❌ NÃO RECOMENDADO - Não atende aos critérios\n"
         
