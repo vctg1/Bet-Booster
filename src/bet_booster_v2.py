@@ -80,6 +80,199 @@ class BetBoosterV2:
         """Inicia o processo de carregamento"""
         threading.Thread(target=self.executar_carregamento, daemon=True).start()
     
+    # ==========================================
+    # FUNÇÕES DE CACHE PARA JOGOS
+    # ==========================================
+    
+    def get_cache_file_path(self, data):
+        """Retorna o caminho do arquivo de cache para uma data específica"""
+        cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+        return os.path.join(cache_dir, f'jogos_{data}.json')
+    
+    def limpar_cache_antigo(self):
+        """Limpa arquivos de cache de mais de 2 dias atrás"""
+        try:
+            cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
+            if not os.path.exists(cache_dir):
+                return
+            
+            data_limite = datetime.now() - timedelta(days=2)
+            arquivos_removidos = 0
+            
+            for arquivo in os.listdir(cache_dir):
+                if arquivo.startswith('jogos_') and arquivo.endswith('.json'):
+                    # Extrair data do nome do arquivo
+                    try:
+                        data_str = arquivo.replace('jogos_', '').replace('.json', '')
+                        data_arquivo = datetime.strptime(data_str, '%Y-%m-%d')
+                        
+                        if data_arquivo < data_limite:
+                            arquivo_path = os.path.join(cache_dir, arquivo)
+                            os.remove(arquivo_path)
+                            arquivos_removidos += 1
+                            print(f"🗑️ Cache removido: {arquivo}")
+                    except ValueError:
+                        # Nome de arquivo inválido, ignorar
+                        continue
+            
+            if arquivos_removidos > 0:
+                print(f"✅ {arquivos_removidos} arquivos de cache antigos removidos")
+            else:
+                print("✅ Nenhum cache antigo para remover")
+                
+        except Exception as e:
+            print(f"⚠️ Erro ao limpar cache antigo: {e}")
+    
+    def verificar_cache_diario(self):
+        """Verifica se precisa atualizar cache diário"""
+        try:
+            data_hoje = datetime.now().strftime('%Y-%m-%d')
+            data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            cache_hoje = self.carregar_jogos_cache(data_hoje)
+            cache_amanha = self.carregar_jogos_cache(data_amanha)
+            
+            # Verificar se cache de hoje existe e é do dia atual
+            cache_hoje_valido = False
+            if cache_hoje:
+                cache_data = datetime.fromisoformat(cache_hoje['timestamp'])
+                if cache_data.date() == datetime.now().date():
+                    cache_hoje_valido = True
+            
+            # Verificar se cache de amanhã existe e é recente
+            cache_amanha_valido = False
+            if cache_amanha:
+                cache_data = datetime.fromisoformat(cache_amanha['timestamp'])
+                if cache_data.date() >= datetime.now().date():
+                    cache_amanha_valido = True
+            
+            return cache_hoje_valido, cache_amanha_valido
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao verificar cache diário: {e}")
+            return False, False
+    
+    def salvar_jogos_cache(self, data, jogos_dados):
+        """Salva jogos e apostas hot no cache JSON"""
+        try:
+            cache_file = self.get_cache_file_path(data)
+            
+            cache_data = {
+                'data': data,
+                'timestamp': datetime.now().isoformat(),
+                'jogos': jogos_dados.get('jogos', []),
+                'apostas_hot': jogos_dados.get('apostas_hot', []),
+                'total_jogos': len(jogos_dados.get('jogos', [])),
+                'total_apostas_hot': len(jogos_dados.get('apostas_hot', []))
+            }
+            
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            
+            print(f"✅ Cache salvo: {cache_data['total_jogos']} jogos, {cache_data['total_apostas_hot']} apostas hot")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Erro ao salvar cache: {e}")
+            return False
+    
+    def carregar_jogos_cache(self, data):
+        """Carrega jogos do cache se disponível e válido"""
+        try:
+            cache_file = self.get_cache_file_path(data)
+            
+            if not os.path.exists(cache_file):
+                return None
+            
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # Verificar se cache tem menos de 24 horas
+            timestamp = datetime.fromisoformat(cache_data['timestamp'])
+            agora = datetime.now()
+            diferenca = agora - timestamp
+            
+            if diferenca.total_seconds() > 86400:  # 24 horas = 86400 segundos
+                print(f"⏰ Cache expirado ({diferenca.total_seconds()/60:.1f} min). Será recarregado.")
+                return None
+            
+            print(f"✅ Cache válido carregado: {cache_data['total_jogos']} jogos, {cache_data['total_apostas_hot']} apostas hot")
+            print(f"   Última atualização: {timestamp.strftime('%H:%M:%S')}")
+            
+            return {
+                'jogos': cache_data.get('jogos', []),
+                'apostas_hot': cache_data.get('apostas_hot', []),
+                'timestamp': timestamp
+            }
+            
+        except Exception as e:
+            print(f"❌ Erro ao carregar cache: {e}")
+            return None
+    
+    def limpar_cache_antigo(self):
+        """Remove arquivos de cache mais antigos que 24 horas"""
+        try:
+            cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
+            if not os.path.exists(cache_dir):
+                return
+            
+            agora = datetime.now()
+            arquivos_removidos = 0
+            
+            for filename in os.listdir(cache_dir):
+                if filename.startswith('jogos_') and filename.endswith('.json'):
+                    filepath = os.path.join(cache_dir, filename)
+                    
+                    # Verificar idade do arquivo
+                    stat = os.stat(filepath)
+                    criacao = datetime.fromtimestamp(stat.st_mtime)
+                    idade = agora - criacao
+                    
+                    if idade.total_seconds() > 86400:  # 24 horas
+                        os.remove(filepath)
+                        arquivos_removidos += 1
+            
+            if arquivos_removidos > 0:
+                print(f"🧹 {arquivos_removidos} arquivos de cache antigos removidos")
+                
+        except Exception as e:
+            print(f"❌ Erro ao limpar cache: {e}")
+    
+    def atualizar_jogos_do_dia_com_cache(self, data):
+        """Atualiza jogos do dia usando cache quando possível"""
+        try:
+            # Tentar carregar do cache primeiro
+            cache_data = self.carregar_jogos_cache(data)
+            
+            if cache_data:
+                # Usar dados do cache
+                self.jogos_do_dia = cache_data['jogos']
+                self.apostas_hot = cache_data['apostas_hot']
+                
+                # Só atualizar lista se a interface já foi criada
+                if hasattr(self, 'tree_jogos'):
+                    self.atualizar_lista_jogos()
+                
+                timestamp = cache_data['timestamp']
+                tempo_cache = timestamp.strftime('%H:%M:%S')
+                
+                # Só atualizar status se o widget já foi criado
+                if hasattr(self, 'status_jogos'):
+                    self.status_jogos.config(
+                        text=f"✅ {len(self.jogos_do_dia)} jogos carregados (cache {tempo_cache})", 
+                        style='Success.TLabel'
+                    )
+                return True
+            
+            # Se não há cache válido, carregar normalmente
+            return False
+            
+        except Exception as e:
+            print(f"❌ Erro ao atualizar com cache: {e}")
+            return False
+    
     def executar_carregamento(self):
         """Executa o carregamento completo"""
         try:
@@ -93,46 +286,103 @@ class BetBoosterV2:
             self.setup_styles()
             time.sleep(0.3)
             
-            # Etapa 3: Buscar jogos de hoje
-            self.atualizar_loading(30, "Buscando jogos de hoje...")
+            # Etapa 3: Limpar cache antigo
+            self.atualizar_loading(25, "Limpando cache antigo...")
+            self.limpar_cache_antigo()
+            time.sleep(0.2)
+            
+            # Etapa 4: Buscar jogos de hoje (com cache)
+            self.atualizar_loading(30, "Verificando jogos de hoje...")
             data_hoje = datetime.now().strftime('%Y-%m-%d')
-            jogos_hoje = self.api.buscar_jogos_do_dia(data_hoje)
-            print(f"✅ {len(jogos_hoje) if jogos_hoje else 0} jogos encontrados hoje")
+            
+            # Tentar carregar do cache primeiro
+            cache_hoje = self.carregar_jogos_cache(data_hoje)
+            if cache_hoje:
+                print(f"📁 Usando cache para hoje: {len(cache_hoje['jogos'])} jogos")
+                jogos_hoje = cache_hoje['jogos']
+                apostas_hot_hoje = cache_hoje['apostas_hot']
+            else:
+                jogos_hoje = self.api.buscar_jogos_do_dia(data_hoje)
+                print(f"🌐 {len(jogos_hoje) if jogos_hoje else 0} jogos encontrados hoje")
+                apostas_hot_hoje = []
+            
             time.sleep(0.3)
             
-            # Etapa 4: Buscar jogos de amanhã
-            self.atualizar_loading(40, "Buscando jogos de amanhã...")
+            # Etapa 5: Buscar jogos de amanhã (com cache)
+            self.atualizar_loading(40, "Verificando jogos de amanhã...")
             data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-            jogos_amanha = self.api.buscar_jogos_do_dia(data_amanha)
-            print(f"✅ {len(jogos_amanha) if jogos_amanha else 0} jogos encontrados amanhã")
+            
+            # Tentar carregar do cache primeiro
+            cache_amanha = self.carregar_jogos_cache(data_amanha)
+            if cache_amanha:
+                print(f"📁 Usando cache para amanhã: {len(cache_amanha['jogos'])} jogos")
+                jogos_amanha = cache_amanha['jogos']
+                apostas_hot_amanha = cache_amanha['apostas_hot']
+            else:
+                jogos_amanha = self.api.buscar_jogos_do_dia(data_amanha)
+                print(f"🌐 {len(jogos_amanha) if jogos_amanha else 0} jogos encontrados amanhã")
+                apostas_hot_amanha = []
+            
             time.sleep(0.3)
             
-            # Etapa 5: Filtrar e preparar jogos para análise
-            self.atualizar_loading(50, "Preparando jogos para análise...")
-            jogos_validos_hoje = self.filtrar_jogos_validos(jogos_hoje or [])
-            jogos_validos_amanha = jogos_amanha[:7] if jogos_amanha else []
+            # Etapa 5: Preparar os primeiros 50 jogos para análise
+            self.atualizar_loading(50, "Preparando primeiros 50 jogos para análise...")
             
-            # Armazenar para uso posterior
-            self.jogos_para_hot = {
-                'hoje': jogos_validos_hoje[:8],
-                'amanha': jogos_validos_amanha
-            }
-            total_jogos = len(self.jogos_para_hot['hoje']) + len(self.jogos_para_hot['amanha'])
-            print(f"✅ {total_jogos} jogos selecionados para análise hot")
+            # Se não há cache, processar os primeiros 50 jogos
+            if not cache_hoje and jogos_hoje:
+                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:50])
+                print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise (limitado a 50)")
+            else:
+                jogos_validos_hoje = []
+                
+            if not cache_amanha and jogos_amanha:
+                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:50])
+                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise (limitado a 50)")
+            else:
+                jogos_validos_amanha = []
+            
+            total_para_analisar = len(jogos_validos_hoje) + len(jogos_validos_amanha)
+            if total_para_analisar > 0:
+                print(f"🔥 {total_para_analisar} jogos SELECIONADOS para análise completa (máximo 100)")
             time.sleep(0.5)
             
             # Etapa 6: CARREGAR E ANALISAR APOSTAS HOT COMPLETAMENTE
-            self.atualizar_loading(60, "Analisando apostas hot de hoje...")
-            apostas_hot_hoje = self.analisar_jogos_completo(self.jogos_para_hot['hoje'], 'Hoje')
+            apostas_todas = []
             
-            self.atualizar_loading(80, "Analisando apostas hot de amanhã...")
-            apostas_hot_amanha = self.analisar_jogos_completo(self.jogos_para_hot['amanha'], 'Amanhã')
+            # Se não há cache, analisar do zero
+            if not cache_hoje and jogos_validos_hoje:
+                self.atualizar_loading(60, "Analisando apostas hot de hoje...")
+                apostas_hot_hoje, jogos_hoje_com_odds = self.analisar_jogos_completo(jogos_validos_hoje, 'Hoje')
+                apostas_todas.extend(apostas_hot_hoje)
+                
+                # Salvar no cache com jogos enriquecidos com odds
+                dados_cache_hoje = {
+                    'jogos': jogos_hoje_com_odds,
+                    'apostas_hot': apostas_hot_hoje
+                }
+                self.salvar_jogos_cache(data_hoje, dados_cache_hoje)
+            else:
+                apostas_todas.extend(apostas_hot_hoje)
             
-            # Combinar e ordenar apostas
-            self.apostas_hot_carregadas = apostas_hot_hoje + apostas_hot_amanha
+            if not cache_amanha and jogos_validos_amanha:
+                self.atualizar_loading(80, "Analisando apostas hot de amanhã...")
+                apostas_hot_amanha, jogos_amanha_com_odds = self.analisar_jogos_completo(jogos_validos_amanha, 'Amanhã')
+                apostas_todas.extend(apostas_hot_amanha)
+                
+                # Salvar no cache com jogos enriquecidos com odds
+                dados_cache_amanha = {
+                    'jogos': jogos_amanha_com_odds,
+                    'apostas_hot': apostas_hot_amanha
+                }
+                self.salvar_jogos_cache(data_amanha, dados_cache_amanha)
+            else:
+                apostas_todas.extend(apostas_hot_amanha)
+            
+            # Combinar e ordenar apostas por VALUE
+            self.apostas_hot_carregadas = apostas_todas
             self.apostas_hot_carregadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,
-                -x['forca_recomendacao']
+                -x.get('value', 0)  # Ordenar por VALUE (maior para menor)
             ))
             
             print(f"✅ {len(self.apostas_hot_carregadas)} apostas hot analisadas e prontas")
@@ -149,78 +399,123 @@ class BetBoosterV2:
             self.apostas_hot_carregadas = []
             self.root.after(100, self.finalizar_carregamento)
     
-    def filtrar_jogos_validos(self, jogos):
-        """Filtra jogos de hoje que ainda não encerraram"""
-        jogos_validos = []
-        agora = datetime.now()
+    def processar_todos_jogos(self, jogos):
+        """Processa jogos independente de validade - apenas adiciona ID se necessário"""
+        jogos_processados = []
         
         for jogo in jogos:
             try:
                 # Verificar se jogo é uma string (ID) ao invés de dicionário
                 if isinstance(jogo, str):
-                    # Se for apenas ID, considerá-lo válido
-                    jogos_validos.append({'id': jogo})
+                    # Se for apenas ID, criar dicionário básico
+                    jogos_processados.append({'id': jogo})
                     continue
                 
-                # Verificar se o jogo ainda não encerrou
-                status = jogo.get('status', {})
-                
-                # Se não tem status ou está "Not Started" ou "In Progress"
-                if (not status or 
-                    status.get('description') in ['Not Started', 'In Progress', '1st Half', '2nd Half'] or
-                    status.get('type') in ['inprogress', 'notstarted']):
-                    
-                    # Verificar horário do jogo
-                    start_time_str = jogo.get('start_time')
-                    if start_time_str:
-                        try:
-                            start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                            # Se o jogo começa em menos de 6 horas no passado, considerar válido
-                            if (start_time - agora).total_seconds() > -21600:  # -6 horas
-                                jogos_validos.append(jogo)
-                        except:
-                            # Se não conseguir parsear a data, incluir mesmo assim
-                            jogos_validos.append(jogo)
-                    else:
-                        # Se não tem horário, incluir
-                        jogos_validos.append(jogo)
+                # Se é dicionário, adicionar diretamente
+                if isinstance(jogo, dict):
+                    jogos_processados.append(jogo)
                 else:
-                    # Se tem status mas não é válido, pular
-                    continue
+                    # Qualquer outro tipo, tentar converter para dict com ID
+                    jogos_processados.append({'id': str(jogo)})
                     
             except Exception as e:
-                print(f"Erro ao filtrar jogo: {e}")
-                # Em caso de erro, incluir o jogo se for um dicionário válido
-                if isinstance(jogo, dict) or isinstance(jogo, str):
-                    if isinstance(jogo, str):
-                        jogos_validos.append({'id': jogo})
-                    else:
-                        jogos_validos.append(jogo)
+                print(f"⚠️ Erro ao processar jogo: {e}")
+                # Mesmo com erro, tentar adicionar algo
+                try:
+                    jogos_processados.append({'id': str(jogo) if jogo else 'unknown'})
+                except:
+                    jogos_processados.append({'id': 'error_' + str(len(jogos_processados))})
         
-        return jogos_validos
+        print(f"✅ {len(jogos_processados)} jogos processados")
+        return jogos_processados
+    
+    def filtrar_jogos_validos(self, jogos):
+        """MANTIDA PARA COMPATIBILIDADE - Mas agora aceita TODOS os jogos"""
+        return self.processar_todos_jogos(jogos)
     
     def analisar_jogos_completo(self, jogos, periodo):
-        """Analisa completamente uma lista de jogos para apostas hot"""
+        """Analisa completamente os primeiros jogos de uma lista (limitado a 50)"""
         apostas_analisadas = []
+        jogos_com_odds = []  # Lista para jogos enriquecidos com odds
+        
+        print(f"🔥 Iniciando análise completa de {len(jogos)} jogos ({periodo}) - limitado a 50 primeiros")
         
         for i, jogo in enumerate(jogos):
             try:
                 # Atualizar status de progresso
                 progresso_base = 60 if periodo == 'Hoje' else 80
                 progresso_atual = progresso_base + (i / len(jogos)) * 15  # 15% para cada período
-                self.atualizar_loading(progresso_atual, f"Analisando {jogo.get('home_team', 'Time')} vs {jogo.get('away_team', 'Time')}...")
                 
-                jogo['periodo'] = periodo
-                recomendacoes = self.processar_jogo_para_hot(jogo)
-                apostas_analisadas.extend(recomendacoes)
+                # Garantir que temos um ID válido
+                jogo_id = jogo.get('id') if isinstance(jogo, dict) else str(jogo)
                 
-                print(f"✅ {len(recomendacoes)} apostas encontradas para {jogo.get('home_team', '')} vs {jogo.get('away_team', '')}")
+                # Usar nomes dos times conforme estão no jogo original, ou N/A se não tiver
+                time_casa = jogo.get('home_team', jogo.get('time_casa', 'N/A')) if isinstance(jogo, dict) else 'N/A'
+                time_visitante = jogo.get('away_team', jogo.get('time_visitante', 'N/A')) if isinstance(jogo, dict) else 'N/A'
+                
+                self.atualizar_loading(progresso_atual, f"[{i+1}/{len(jogos)}] {time_casa} vs {time_visitante}")
+                
+                # Tentar buscar odds detalhadas para este jogo
+                odds_detalhadas = None
+                if jogo_id and jogo_id != 'N/A':
+                    try:
+                        odds_detalhadas = self.buscar_odds_detalhadas(jogo_id)
+                    except Exception as e:
+                        print(f"⚠️ Erro ao buscar odds para {jogo_id}: {e}")
+                
+                # Criar jogo completo sempre (com ou sem odds)
+                if odds_detalhadas:
+                    # Jogo COM odds
+                    jogo_completo = {**jogo, **odds_detalhadas} if isinstance(jogo, dict) else {**odds_detalhadas, 'id': jogo_id}
+                    jogo_completo['periodo'] = periodo
+                    print(f"✅ Jogo {time_casa} vs {time_visitante} - COM odds")
+                else:
+                    # Jogo SEM odds - criar estrutura básica
+                    jogo_completo = jogo.copy() if isinstance(jogo, dict) else {'id': jogo_id}
+                    jogo_completo.update({
+                        'periodo': periodo,
+                        'odds': None,
+                        'home_team': time_casa,
+                        'away_team': time_visitante,
+                        'start_time': jogo_completo.get('start_time', ''),
+                        'league': jogo_completo.get('league', 'N/A')
+                    })
+                    print(f"⚠️ Jogo {time_casa} vs {time_visitante} - SEM odds (dados básicos)")
+                
+                # Adicionar à lista de jogos processados
+                jogos_com_odds.append(jogo_completo)
+                
+                # Tentar processar para apostas hot (só se tiver dados válidos)
+                if isinstance(jogo, dict):
+                    jogo['periodo'] = periodo
+                    try:
+                        recomendacoes = self.processar_jogo_para_hot(jogo)
+                        apostas_analisadas.extend(recomendacoes)
+                        print(f"📊 {len(recomendacoes)} apostas hot geradas")
+                    except Exception as e:
+                        print(f"⚠️ Erro ao processar apostas hot: {e}")
                 
             except Exception as e:
-                print(f"Erro ao analisar jogo {jogo.get('home_team', '')} vs {jogo.get('away_team', '')}: {e}")
-                continue
+                print(f"❌ ERRO ao processar jogo {i+1}: {e}")
+                
+                # SEMPRE adicionar jogo mesmo com erro total
+                try:
+                    jogo_erro = {
+                        'id': jogo.get('id') if isinstance(jogo, dict) else str(jogo),
+                        'home_team': 'Erro',
+                        'away_team': 'Erro',
+                        'periodo': periodo,
+                        'odds': None,
+                        'start_time': '',
+                        'league': 'Erro'
+                    }
+                    jogos_com_odds.append(jogo_erro)
+                    print(f"💾 Jogo com erro salvo como estrutura básica")
+                except Exception as e2:
+                    print(f"❌ Erro crítico ao salvar jogo com erro: {e2}")
         
-        return apostas_analisadas
+        print(f"🎯 CONCLUÍDO: {len(jogos_com_odds)} jogos processados, {len(apostas_analisadas)} apostas hot geradas ({periodo})")
+        return apostas_analisadas, jogos_com_odds
     
     def atualizar_loading(self, progresso, status):
         """Atualiza barra de progresso e status"""
@@ -317,11 +612,44 @@ class BetBoosterV2:
                  style='Subtitle.TLabel').pack(pady=5)
         
         # Frame de controles
-        controles_frame = ttk.LabelFrame(self.tab_apostas_hot, text="Configurações", padding=10)
+        controles_frame = ttk.LabelFrame(self.tab_apostas_hot, text="Filtros e Configurações", padding=10)
         controles_frame.pack(fill='x', padx=20, pady=10)
         
+        # Linha 1: Filtros
+        filtros_frame = ttk.Frame(controles_frame)
+        filtros_frame.pack(fill='x', pady=5)
+        
+        # Filtro de Data
+        ttk.Label(filtros_frame, text="📅 Data:").pack(side='left', padx=(0, 5))
+        self.filtro_data = ttk.Combobox(filtros_frame, values=["Todos", "Hoje", "Amanhã"], 
+                                       state="readonly", width=10)
+        self.filtro_data.pack(side='left', padx=(0, 15))
+        self.filtro_data.set("Todos")
+        self.filtro_data.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
+        
+        # Filtro de Risco
+        ttk.Label(filtros_frame, text="🎯 Risco:").pack(side='left', padx=(0, 5))
+        self.filtro_risco = ttk.Combobox(filtros_frame, values=["Todos", "Fortes", "Arriscadas"], 
+                                        state="readonly", width=10)
+        self.filtro_risco.pack(side='left', padx=(0, 15))
+        self.filtro_risco.set("Todos")
+        self.filtro_risco.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
+        
+        # Filtro de Tipo de Aposta
+        ttk.Label(filtros_frame, text="⚽ Tipo:").pack(side='left', padx=(0, 5))
+        self.filtro_tipo = ttk.Combobox(filtros_frame, values=["Todos", "Resultado", "Outros"], 
+                                       state="readonly", width=10)
+        self.filtro_tipo.pack(side='left', padx=(0, 15))
+        self.filtro_tipo.set("Todos")
+        self.filtro_tipo.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
+        
+        # Botão de limpeza de filtros
+        ttk.Button(filtros_frame, text="🔄 Limpar Filtros", 
+                  command=self.limpar_filtros_hot).pack(side='left', padx=15)
+        
+        # Linha 2: Botões de configuração
         buttons_frame = ttk.Frame(controles_frame)
-        buttons_frame.pack(fill='x')
+        buttons_frame.pack(fill='x', pady=5)
         
         ttk.Button(buttons_frame, text="📊 Configurar Filtros", 
                   command=self.configurar_filtros_hot).pack(side='left', padx=5)
@@ -348,6 +676,102 @@ class BetBoosterV2:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
     
+    def aplicar_filtros_hot(self, event=None):
+        """Aplica filtros nas apostas hot"""
+        try:
+            if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
+                return
+            
+            filtro_data = self.filtro_data.get()
+            filtro_risco = self.filtro_risco.get()
+            filtro_tipo = self.filtro_tipo.get()
+            
+            # Filtrar apostas
+            apostas_filtradas = []
+            
+            for aposta in self.apostas_hot:
+                # Filtro de data
+                incluir_data = True
+                if filtro_data == "Hoje":
+                    incluir_data = aposta.get('periodo') == 'Hoje'
+                elif filtro_data == "Amanhã":
+                    incluir_data = aposta.get('periodo') == 'Amanhã'
+                
+                # Filtro de risco - usar o campo 'tipo' da aposta
+                incluir_risco = True
+                if filtro_risco == "Fortes":
+                    incluir_risco = aposta.get('tipo') == 'FORTE'
+                elif filtro_risco == "Arriscadas":
+                    incluir_risco = aposta.get('tipo') == 'ARRISCADA'
+                
+                # Filtro de tipo de aposta - verificar se é resultado ou outros
+                incluir_tipo = True
+                if filtro_tipo == "Resultado":
+                    # Apostas de resultado: vitória casa, empate, vitória visitante
+                    tipo_aposta = aposta.get('aposta', '').lower()
+                    incluir_tipo = any(palavra in tipo_aposta for palavra in ['vitória', 'empate', 'casa', 'fora'])
+                elif filtro_tipo == "Outros":
+                    # Apostas over/under e outras
+                    tipo_aposta = aposta.get('aposta', '').lower()
+                    incluir_tipo = any(palavra in tipo_aposta for palavra in ['over', 'under', 'btts', 'gols']) and not any(palavra in tipo_aposta for palavra in ['vitória', 'empate'])
+                
+                if incluir_data and incluir_risco and incluir_tipo:
+                    apostas_filtradas.append(aposta)
+            
+            # Atualizar interface com apostas filtradas
+            self.atualizar_apostas_hot_interface(apostas_filtradas)
+            
+            # Atualizar status
+            total_filtradas = len(apostas_filtradas)
+            total_original = len(self.apostas_hot)
+            
+            status_text = f"✅ {total_filtradas} de {total_original} apostas"
+            if filtro_data != "Todos":
+                status_text += f" ({filtro_data})"
+            if filtro_risco != "Todos":
+                status_text += f" ({filtro_risco})"
+            if filtro_tipo != "Todos":
+                status_text += f" ({filtro_tipo})"
+            
+            self.status_hot.config(text=status_text, style='Success.TLabel')
+            
+        except Exception as e:
+            self.status_hot.config(text=f"❌ Erro ao aplicar filtros: {str(e)}", style='Warning.TLabel')
+    
+    def limpar_filtros_hot(self):
+        """Limpa todos os filtros das apostas hot"""
+        self.filtro_data.set("Todos")
+        self.filtro_risco.set("Todos")
+        self.filtro_tipo.set("Todos")
+        self.aplicar_filtros_hot()
+    
+    def atualizar_apostas_hot_interface(self, apostas_lista=None):
+        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada por VALUE"""
+        try:
+            # Limpar frame
+            for widget in self.apostas_hot_frame.winfo_children():
+                widget.destroy()
+            
+            # Usar lista fornecida ou lista completa
+            apostas_para_mostrar = apostas_lista if apostas_lista is not None else self.apostas_hot
+            
+            if not apostas_para_mostrar:
+                ttk.Label(self.apostas_hot_frame, text="🔍 Nenhuma aposta encontrada com os filtros selecionados", 
+                         style='Subtitle.TLabel').pack(pady=20)
+                return
+            
+            # Ordenar apostas por VALUE (do maior para o menor)
+            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: x.get('value', 0), reverse=True)
+            
+            # Adicionar apostas ordenadas
+            for i, aposta in enumerate(apostas_ordenadas):
+                self.criar_card_aposta_hot(aposta, i)
+                
+        except Exception as e:
+            print(f"Erro ao atualizar interface de apostas hot: {e}")
+            ttk.Label(self.apostas_hot_frame, text=f"❌ Erro ao carregar apostas: {str(e)}", 
+                     style='Warning.TLabel').pack(pady=20)
+    
     def create_jogos_do_dia_tab(self):
         """Aba atualizada: Jogos do Dia com novas funcionalidades"""
         self.tab_jogos_dia = ttk.Frame(self.notebook)
@@ -372,8 +796,8 @@ class BetBoosterV2:
         
         ttk.Button(linha1, text="🔍 Buscar Jogos", 
                   command=self.buscar_jogos_do_dia).pack(side='left', padx=5)
-        ttk.Button(linha1, text="🔄 Atualizar Status", 
-                  command=self.atualizar_status_jogos).pack(side='left', padx=5)
+        ttk.Button(linha1, text="🔄 Atualizar Jogos", 
+                  command=self.forcar_atualizacao_jogos).pack(side='left', padx=5)
         
         # Linha 2: Opções de análise
         linha2 = ttk.Frame(controles_frame)
@@ -394,14 +818,14 @@ class BetBoosterV2:
         lista_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
         # Treeview para jogos
-        columns = ('Horário', 'Status', 'Casa', 'Visitante', 'Liga', 'Odds H/E/A')
+        columns = ('✓', 'Horário', 'Casa', 'Visitante', 'Liga', 'Odds H/E/A')
         self.tree_jogos = ttk.Treeview(lista_frame, columns=columns, show='headings', height=15)
         
         for col in columns:
             self.tree_jogos.heading(col, text=col)
-            if col == 'Horário':
-                self.tree_jogos.column(col, width=80, anchor='center')
-            elif col == 'Status':
+            if col == '✓':
+                self.tree_jogos.column(col, width=30, anchor='center')
+            elif col == 'Horário':
                 self.tree_jogos.column(col, width=80, anchor='center')
             elif col == 'Odds H/E/A':
                 self.tree_jogos.column(col, width=120, anchor='center')
@@ -416,15 +840,35 @@ class BetBoosterV2:
         self.tree_jogos.configure(yscrollcommand=scrollbar_jogos.set)
         
         # Bind para seleção
+        self.tree_jogos.bind('<Button-1>', self.on_jogo_clicado)
         self.tree_jogos.bind('<Double-1>', self.on_jogo_selecionado)
+        
+        # Variáveis de controle de seleção
+        self.jogos_selecionados = []  # Lista de índices selecionados
+        self.jogo_selecionado_index = None  # Jogo principal selecionado
         
         # Frame de ações
         acoes_frame = ttk.LabelFrame(self.tab_jogos_dia, text="Ações do Jogo Selecionado", padding=10)
         acoes_frame.pack(fill='x', padx=20, pady=10)
         
-        # Botões de ação
+        # Linha 1: Controles de seleção
+        selecao_frame = ttk.Frame(acoes_frame)
+        selecao_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(selecao_frame, text="🎯 Seleção:").pack(side='left', padx=(0, 5))
+        ttk.Button(selecao_frame, text="🎯 Primeiro Jogo", 
+                  command=self.selecionar_todos_jogos).pack(side='left', padx=5)
+        ttk.Button(selecao_frame, text="❌ Limpar Seleção", 
+                  command=self.limpar_selecao_jogos).pack(side='left', padx=5)
+        
+        # Label de status da seleção
+        self.status_selecao = ttk.Label(selecao_frame, text="Nenhum jogo selecionado", 
+                                       style='Subtitle.TLabel')
+        self.status_selecao.pack(side='right')
+        
+        # Linha 2: Botões de ação
         acoes_buttons = ttk.Frame(acoes_frame)
-        acoes_buttons.pack(fill='x')
+        acoes_buttons.pack(fill='x', pady=5)
         
         ttk.Button(acoes_buttons, text="📊 Calcular Probabilidades", 
                   command=self.calcular_prob_jogo_selecionado).pack(side='left', padx=5)
@@ -432,8 +876,6 @@ class BetBoosterV2:
                   command=self.aposta_simples_jogo).pack(side='left', padx=5)
         ttk.Button(acoes_buttons, text="📋 Adicionar à Múltipla", 
                   command=self.adicionar_multipla_jogo).pack(side='left', padx=5)
-        ttk.Button(acoes_buttons, text="⚡ Editar Jogo Ao Vivo", 
-                  command=self.editar_jogo_ao_vivo).pack(side='left', padx=5)
     
     def create_cadastro_tab(self):
         """Aba de cadastro manual (mantida)"""
@@ -983,7 +1425,7 @@ class BetBoosterV2:
             recomendacoes += f"🟢 FORTE: Vitória {nome_casa} ({maior_prob:.1f}%)\n"
         elif probabilidades['vitoria_visitante'] == maior_prob and maior_prob >= 40:
             recomendacoes += f"🟢 FORTE: Vitória {nome_visitante} ({maior_prob:.1f}%)\n"
-        elif probabilidades['empate'] == maior_prob and maior_prob >= 35:
+        elif probabilidades['empate'] == maior_prob and maior_prob >= 33:
             recomendacoes += f"🟢 FORTE: Empate ({maior_prob:.1f}%)\n"
         
         # Recomendações para gols
@@ -1151,10 +1593,10 @@ class BetBoosterV2:
                     continue
                 time.sleep(0.3)  # Pausa entre requisições
             
-            # Ordenar por força da recomendação (hoje primeiro)
+            # Ordenar por VALUE (maior para menor) como critério principal
             apostas_recomendadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,  # Hoje primeiro
-                -x['forca_recomendacao']  # Depois por força
+                -x.get('value', 0)  # Depois por VALUE (maior para menor)
             ))
             
             # Exibir apostas hot
@@ -1274,13 +1716,13 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar regras para apostas de vencedor:
-                    # Forte: value >= 5% E probabilidade IMPLÍCITA >= 35%
-                    # Arriscada: value >= 15% E probabilidade IMPLÍCITA < 35%
+                    # Forte: value >= 5% E probabilidade IMPLÍCITA >= 33%
+                    # Arriscada: value >= 15% E probabilidade IMPLÍCITA < 33%
                     tipo_recomendacao = None
                     
-                    if value_percent >= 5 and prob_impl >= 35:
+                    if value_percent >= 5 and prob_impl >= 33:
                         tipo_recomendacao = "FORTE"
-                    elif value_percent >= 15 and prob_impl < 35:
+                    elif value_percent >= 15 and prob_impl < 33:
                         tipo_recomendacao = "ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na nossa probabilidade
@@ -1331,13 +1773,13 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar regras para apostas Over/Under:
-                    # Forte: probabilidade IMPLÍCITA >= 35% E Value bet >= 5%
-                    # Arriscada: probabilidade IMPLÍCITA < 35% E Value bet >= 15%
+                    # Forte: probabilidade IMPLÍCITA >= 33% E Value bet >= 5%
+                    # Arriscada: probabilidade IMPLÍCITA < 33% E Value bet >= 15%
                     tipo_recomendacao = None
                     
-                    if prob_impl >= 35 and value_percent >= 5:
+                    if prob_impl >= 33 and value_percent >= 5:
                         tipo_recomendacao = "FORTE"
-                    elif prob_impl < 35 and value_percent >= 15:
+                    elif prob_impl < 33 and value_percent >= 15:
                         tipo_recomendacao = "ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na nossa probabilidade
@@ -1365,44 +1807,14 @@ class BetBoosterV2:
         return recomendacoes
     
     def exibir_apostas_hot(self, apostas):
-        """Exibe as apostas hot na interface"""
-        # Limpar frame atual
-        for widget in self.apostas_hot_frame.winfo_children():
-            widget.destroy()
-        
-        if not apostas:
-            ttk.Label(self.apostas_hot_frame, text="Nenhuma aposta recomendada encontrada", 
-                     style='Warning.TLabel').pack(pady=20)
-            return
-        
-        # Separar por tipo
-        apostas_fortes = [a for a in apostas if a['tipo'] == 'FORTE']
-        apostas_arriscadas = [a for a in apostas if a['tipo'] == 'ARRISCADA']
-        
-        # Exibir apostas fortes primeiro
-        if apostas_fortes:
-            titulo_forte = ttk.Label(self.apostas_hot_frame, text="🟢 APOSTAS FORTES", 
-                                   style='Success.TLabel', font=('Arial', 14, 'bold'))
-            titulo_forte.pack(pady=10)
-            
-            for aposta in apostas_fortes:
-                self.criar_card_aposta(aposta)
-        
-        # Linha separadora
-        if apostas_fortes and apostas_arriscadas:
-            separator = ttk.Separator(self.apostas_hot_frame, orient='horizontal')
-            separator.pack(fill='x', pady=20)
-        
-        # Exibir apostas arriscadas
-        if apostas_arriscadas:
-            titulo_arriscada = ttk.Label(self.apostas_hot_frame, text="🟡 APOSTAS ARRISCADAS", 
-                                       style='Hot.TLabel', font=('Arial', 14, 'bold'))
-            titulo_arriscada.pack(pady=10)
-            
-            for aposta in apostas_arriscadas:
-                self.criar_card_aposta(aposta)
+        """Exibe as apostas hot na interface ordenadas por VALUE (maior para menor)"""
+        # Ordenar apostas por VALUE (do maior para o menor)
+        apostas_ordenadas = sorted(apostas, key=lambda x: x.get('value', 0), reverse=True)
+        self.apostas_hot = apostas_ordenadas  # Armazenar para filtros
+        self.atualizar_apostas_hot_interface()
+        self.aplicar_filtros_hot()  # Aplicar filtros atuais
     
-    def criar_card_aposta(self, aposta):
+    def criar_card_aposta_hot(self, aposta, index):
         """Cria um card visual para uma aposta recomendada"""
         # Frame do card
         card_frame = ttk.LabelFrame(self.apostas_hot_frame, text="", padding=15)
@@ -1478,9 +1890,9 @@ class BetBoosterV2:
     
     # Métodos para Jogos do Dia
     def buscar_jogos_do_dia(self):
-        """Busca jogos do dia selecionado"""
+        """Busca jogos do dia selecionado com cache inteligente"""
         try:
-            self.status_jogos.config(text="🔄 Buscando jogos...", style='Warning.TLabel')
+            self.status_jogos.config(text="🔄 Verificando cache...", style='Warning.TLabel')
             self.root.update()
             
             # Converter data do formato DD/MM/YYYY para YYYY-MM-DD
@@ -1488,7 +1900,14 @@ class BetBoosterV2:
             data_obj = datetime.strptime(data_input, '%d/%m/%Y')
             data_api = data_obj.strftime('%Y-%m-%d')
             
-            # Buscar jogos
+            # Tentar carregar do cache primeiro
+            if self.atualizar_jogos_do_dia_com_cache(data_api):
+                return  # Se conseguiu carregar do cache, termina aqui
+            
+            # Se não há cache válido, carregar da API
+            self.status_jogos.config(text="🌐 Buscando jogos da API...", style='Warning.TLabel')
+            self.root.update()
+            
             jogos = self.api.buscar_jogos_do_dia(data_api)
             
             if not jogos:
@@ -1496,56 +1915,58 @@ class BetBoosterV2:
                 return
             
             # Buscar odds para cada jogo
-            self.jogos_do_dia = []
+            self.status_jogos.config(text="📊 Carregando odds e análises...", style='Warning.TLabel')
+            self.root.update()
             
-            for jogo in jogos:
+            self.jogos_do_dia = []
+            apostas_hot_do_dia = []
+            
+            for i, jogo in enumerate(jogos):
                 try:
+                    # Atualizar progresso
+                    progresso = (i + 1) / len(jogos) * 100
+                    self.status_jogos.config(
+                        text=f"⚽ Processando jogo {i+1}/{len(jogos)} ({progresso:.0f}%)", 
+                        style='Warning.TLabel'
+                    )
+                    self.root.update()
+                    
                     odds_detalhadas = self.buscar_odds_detalhadas(jogo['id'])
                     if odds_detalhadas:
                         jogo_completo = {**jogo, **odds_detalhadas}
-                        # Determinar status do jogo
-                        jogo_completo['status_calculado'] = self.determinar_status_jogo(odds_detalhadas['start_time'])
                         self.jogos_do_dia.append(jogo_completo)
+                        
+                        # Analisar apostas hot para este jogo
+                        apostas_jogo = self.processar_jogo_para_hot(jogo)
+                        apostas_hot_do_dia.extend(apostas_jogo)
                     else:
                         jogo['odds'] = None
-                        jogo['status_calculado'] = self.determinar_status_jogo('')
                         self.jogos_do_dia.append(jogo)
                 except Exception as e:
                     print(f"Erro ao processar jogo: {e}")
                     jogo['odds'] = None
-                    jogo['status_calculado'] = 'Agendado'
                     self.jogos_do_dia.append(jogo)
+            
+            # Salvar no cache
+            dados_cache = {
+                'jogos': self.jogos_do_dia,
+                'apostas_hot': apostas_hot_do_dia
+            }
+            self.salvar_jogos_cache(data_api, dados_cache)
             
             # Atualizar lista visual
             self.atualizar_lista_jogos()
             
-            self.status_jogos.config(text=f"✅ {len(self.jogos_do_dia)} jogos carregados", 
-                                   style='Success.TLabel')
+            tempo_agora = datetime.now().strftime('%H:%M:%S')
+            self.status_jogos.config(
+                text=f"✅ {len(self.jogos_do_dia)} jogos carregados ({len(apostas_hot_do_dia)} apostas hot) - {tempo_agora}", 
+                style='Success.TLabel'
+            )
             
         except Exception as e:
             self.status_jogos.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
     
-    def determinar_status_jogo(self, start_time):
-        """Determina o status atual do jogo baseado no horário"""
-        if not start_time:
-            return "Agendado"
-        
-        try:
-            # Converter para datetime (assumindo UTC e ajustando para GMT-3)
-            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            start_dt_local = start_dt - timedelta(hours=3)  # Ajustar para GMT-3
-            
-            agora = datetime.now()
-            
-            if agora < start_dt_local:
-                return "Agendado"
-            elif agora >= start_dt_local and agora <= start_dt_local + timedelta(minutes=120):
-                return "🔴 AO VIVO"
-            else:
-                return "Encerrado"
-                
-        except Exception:
-            return "Agendado"
+
     
     def atualizar_lista_jogos(self):
         """Atualiza a lista visual de jogos"""
@@ -1553,73 +1974,278 @@ class BetBoosterV2:
         for item in self.tree_jogos.get_children():
             self.tree_jogos.delete(item)
         
-        # Adicionar jogos
-        for jogo in self.jogos_do_dia:
-            horario = self.formatar_horario(jogo.get('start_time', ''))
-            status = jogo.get('status_calculado', 'Agendado')
-            casa = jogo.get('home_team', jogo.get('time_casa', ''))
-            visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
-            liga = jogo.get('league', jogo.get('liga', ''))
-            
-            # Formatear odds
-            odds_text = "N/A"
-            if jogo.get('odds') and 'resultFt' in jogo['odds']:
-                result_odds = jogo['odds']['resultFt']
-                odds_text = f"{result_odds['home']:.2f} / {result_odds['draw']:.2f} / {result_odds['away']:.2f}"
-            
-            # Inserir na árvore
-            item_id = self.tree_jogos.insert('', 'end', values=(
-                horario, status, casa, visitante, liga, odds_text
-            ))
-            
-            # Colorir linhas de jogos ao vivo
-            if "AO VIVO" in status:
-                self.tree_jogos.set(item_id, 'Status', status)
-    
-    def atualizar_status_jogos(self):
-        """Atualiza o status de todos os jogos carregados"""
-        if not self.jogos_do_dia:
-            return
+        # Resetar seleções
+        if not hasattr(self, 'jogos_selecionados'):
+            self.jogos_selecionados = []
         
-        for jogo in self.jogos_do_dia:
-            jogo['status_calculado'] = self.determinar_status_jogo(jogo.get('start_time', ''))
+        # Adicionar jogos
+        for i, jogo in enumerate(self.jogos_do_dia):
+            # Checkbox de seleção
+            checkbox = "☑" if i in self.jogos_selecionados else "☐"
+            
+            # Horário
+            start_time = jogo.get('start_time', '') or jogo.get('horario', '')
+            horario = self.formatar_horario(start_time)
+            
+            # Times
+            casa = jogo.get('home_team', jogo.get('time_casa', '')) or ''
+            visitante = jogo.get('away_team', jogo.get('time_visitante', '')) or ''
+            
+            # Liga
+            liga = jogo.get('league', jogo.get('liga', '')) or ''
+            
+            # Formatear odds - tratamento mais robusto
+            odds_text = "N/A"
+            try:
+                if jogo.get('odds') and isinstance(jogo['odds'], dict):
+                    if 'resultFt' in jogo['odds'] and jogo['odds']['resultFt']:
+                        result_odds = jogo['odds']['resultFt']
+                        if all(key in result_odds for key in ['home', 'draw', 'away']):
+                            home_odd = result_odds['home']
+                            draw_odd = result_odds['draw'] 
+                            away_odd = result_odds['away']
+                            
+                            # Verificar se os valores não são None
+                            if home_odd is not None and draw_odd is not None and away_odd is not None:
+                                odds_text = f"{home_odd:.2f} / {draw_odd:.2f} / {away_odd:.2f}"
+                elif jogo.get('odds_casa') and jogo.get('odds_empate') and jogo.get('odds_visitante'):
+                    # Formato alternativo do cache
+                    odds_text = f"{jogo['odds_casa']:.2f} / {jogo['odds_empate']:.2f} / {jogo['odds_visitante']:.2f}"
+            except (TypeError, KeyError, ValueError) as e:
+                print(f"Erro ao formatar odds: {e}")
+                odds_text = "N/A"
+            
+            # Inserir na árvore com checkbox
+            item_id = self.tree_jogos.insert('', 'end', values=(
+                checkbox, horario, casa, visitante, liga, odds_text
+            ))
+        
+        # Atualizar status da seleção
+        self.atualizar_status_selecao()
+    
+    def on_jogo_clicado(self, event):
+        """Callback quando um jogo é clicado (para seleção/deseleção)"""
+        try:
+            selection = self.tree_jogos.selection()
+            if not selection:
+                return
+            
+            # Obter índice do item clicado
+            item = self.tree_jogos.item(selection[0])
+            index = self.tree_jogos.index(selection[0])
+            
+            # Verificar se clicou na coluna de checkbox
+            region = self.tree_jogos.identify_region(event.x, event.y)
+            column = self.tree_jogos.identify_column(event.x)
+            
+            if column == '#1':  # Primeira coluna (checkbox)
+                self.selecionar_unico_jogo(index)
+            else:
+                # Seleção única também para clique normal
+                self.selecionar_unico_jogo(index)
+                
+        except Exception as e:
+            print(f"Erro ao clicar no jogo: {e}")
+    
+    def selecionar_unico_jogo(self, index):
+        """Seleciona apenas um jogo, removendo seleções anteriores"""
+        # Se o jogo já está selecionado, deselecionar
+        if index in self.jogos_selecionados:
+            self.jogos_selecionados = []
+            self.jogo_selecionado_index = None
+        else:
+            # Seleção única - apenas um jogo
+            self.jogos_selecionados = [index]
+            self.jogo_selecionado_index = index
         
         self.atualizar_lista_jogos()
-        self.status_jogos.config(text="✅ Status atualizado", style='Success.TLabel')
+    
+    def toggle_selecao_jogo(self, index):
+        """Alterna a seleção de um jogo (DEPRECATED - usar selecionar_unico_jogo)"""
+        self.selecionar_unico_jogo(index)
+    
+    def selecionar_todos_jogos(self):
+        """Seleciona o primeiro jogo da lista"""
+        if self.jogos_do_dia:
+            self.selecionar_unico_jogo(0)
+    
+    def limpar_selecao_jogos(self):
+        """Limpa toda a seleção"""
+        self.jogos_selecionados = []
+        self.jogo_selecionado_index = None
+        self.atualizar_lista_jogos()
+    
+    def atualizar_status_selecao(self):
+        """Atualiza o status da seleção"""
+        if not hasattr(self, 'status_selecao'):
+            return
+            
+        if not self.jogos_selecionados:
+            texto = "Nenhum jogo selecionado"
+            estilo = 'Subtitle.TLabel'
+        else:
+            # Só pode haver um jogo selecionado
+            jogo = self.jogos_do_dia[self.jogos_selecionados[0]]
+            casa = jogo.get('home_team', jogo.get('time_casa', ''))
+            visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
+            texto = f"✅ Jogo selecionado: {casa} vs {visitante}"
+            estilo = 'Success.TLabel'
+        
+        self.status_selecao.config(text=texto, style=estilo)
     
     def on_jogo_selecionado(self, event):
-        """Callback quando um jogo é selecionado"""
-        selection = self.tree_jogos.selection()
-        if not selection:
-            return
-        
-        # Obter índice do jogo selecionado
-        item = self.tree_jogos.item(selection[0])
-        values = item['values']
-        
-        # Encontrar jogo correspondente
-        casa = values[2]
-        visitante = values[3]
-        
-        for i, jogo in enumerate(self.jogos_do_dia):
-            jogo_casa = jogo.get('home_team', jogo.get('time_casa', ''))
-            jogo_visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
+        """Callback quando um jogo é selecionado com duplo clique"""
+        try:
+            selection = self.tree_jogos.selection()
+            if not selection:
+                return
             
-            if jogo_casa == casa and jogo_visitante == visitante:
-                self.jogo_selecionado_index = i
-                break
+            # Obter índice do item diretamente
+            index = self.tree_jogos.index(selection[0])
+            
+            # Seleção única - substituir seleção anterior
+            self.jogo_selecionado_index = index
+            self.jogos_selecionados = [index]  # Apenas um jogo selecionado
+            
+            # Atualizar interface
+            self.atualizar_lista_jogos()
+            
+        except Exception as e:
+            print(f"Erro ao selecionar jogo: {e}")
     
     def calcular_prob_jogo_selecionado(self):
         """Calcula probabilidades do jogo selecionado"""
-        if not hasattr(self, 'jogo_selecionado_index'):
-            messagebox.showwarning("Aviso", "Selecione um jogo primeiro")
+        if not hasattr(self, 'jogo_selecionado_index') or self.jogo_selecionado_index is None:
+            messagebox.showwarning("Aviso", "Selecione um jogo primeiro.\n\nClique em um jogo da lista ou use duplo clique para selecioná-lo.")
             return
         
         jogo = self.jogos_do_dia[self.jogo_selecionado_index]
         
-        # Implementar cálculo de probabilidades
-        # (será adaptado dos métodos existentes)
-        messagebox.showinfo("Info", f"Calculando probabilidades para {jogo.get('home_team', '')} vs {jogo.get('away_team', '')}")
+        try:
+            # Buscar estatísticas do jogo
+            jogo_id = jogo.get('id')
+            if not jogo_id:
+                messagebox.showerror("Erro", "ID do jogo não encontrado")
+                return
+            
+            # Buscar estatísticas
+            stats = self.api.buscar_estatisticas_detalhadas_time(jogo_id)
+            if not stats:
+                messagebox.showerror("Erro", "Não foi possível obter estatísticas do jogo")
+                return
+            
+            # Calcular probabilidades
+            probabilidades = self.calcular_probabilidades_completas(stats, self.modo_analise.get())
+            
+            # Exibir resultado
+            casa = jogo.get('home_team', jogo.get('time_casa', ''))
+            visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
+            
+            resultado = f"""
+🎲 PROBABILIDADES CALCULADAS
+═══════════════════════════════════════
+
+🏠 {casa} vs ✈️ {visitante}
+
+📊 RESULTADOS:
+🏠 Vitória Casa: {probabilidades['vitoria_casa']:.1f}%
+🤝 Empate: {probabilidades['empate']:.1f}%
+✈️ Vitória Visitante: {probabilidades['vitoria_visitante']:.1f}%
+
+⚽ GOLS ESPERADOS:
+🏠 Casa: {probabilidades['gols_esperados_casa']:.2f}
+✈️ Visitante: {probabilidades['gols_esperados_visitante']:.2f}
+🎯 Total: {probabilidades['gols_esperados_total']:.2f}
+
+📈 MERCADOS DE GOLS:
+Over 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'over'):.1f}%
+Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under'):.1f}%
+
+🎯 Modo de Análise: {self.modo_analise.get()}
+"""
+            
+            messagebox.showinfo("Probabilidades Calculadas", resultado)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao calcular probabilidades:\n{str(e)}")
+            print(f"Erro detalhado: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def forcar_atualizacao_jogos(self):
+        """Atualiza apenas os jogos na aba sem mexer no cache"""
+        try:
+            # Converter data do formato DD/MM/YYYY para YYYY-MM-DD
+            data_input = self.entry_data.get()
+            data_obj = datetime.strptime(data_input, '%d/%m/%Y')
+            data_api = data_obj.strftime('%Y-%m-%d')
+            
+            # Atualizar status
+            self.status_jogos.config(text="🔄 Atualizando jogos da aba...", style='Warning.TLabel')
+            self.root.update()
+            
+            # Buscar jogos da API sem mexer no cache
+            self.atualizar_jogos_sem_cache(data_api)
+            
+        except Exception as e:
+            self.status_jogos.config(text=f"❌ Erro na atualização: {str(e)}", style='Warning.TLabel')
+            messagebox.showerror("Erro", f"Erro ao atualizar jogos: {str(e)}")
+    
+    def atualizar_jogos_sem_cache(self, data_api):
+        """Atualiza jogos na interface sem mexer no cache"""
+        try:
+            # Buscar jogos da API
+            self.status_jogos.config(text="🌐 Buscando jogos da API...", style='Warning.TLabel')
+            self.root.update()
+            
+            jogos = self.api.buscar_jogos_do_dia(data_api)
+            
+            if not jogos:
+                self.status_jogos.config(text="❌ Nenhum jogo encontrado", style='Warning.TLabel')
+                return
+            
+            # Buscar odds para cada jogo
+            self.status_jogos.config(text="📊 Carregando odds...", style='Warning.TLabel')
+            self.root.update()
+            
+            jogos_atualizados = []
+            
+            for i, jogo in enumerate(jogos):
+                try:
+                    # Atualizar progresso
+                    progresso = (i + 1) / len(jogos) * 100
+                    self.status_jogos.config(
+                        text=f"⚽ Processando jogo {i+1}/{len(jogos)} ({progresso:.0f}%)", 
+                        style='Warning.TLabel'
+                    )
+                    self.root.update()
+                    
+                    odds_detalhadas = self.buscar_odds_detalhadas(jogo['id'])
+                    if odds_detalhadas:
+                        jogo_completo = {**jogo, **odds_detalhadas}
+                        jogos_atualizados.append(jogo_completo)
+                    else:
+                        jogo['odds'] = None
+                        jogos_atualizados.append(jogo)
+                        
+                except Exception as e:
+                    print(f"Erro ao processar jogo: {e}")
+                    jogo['odds'] = None
+                    jogos_atualizados.append(jogo)
+            
+            # Atualizar apenas os jogos na interface (sem modificar o cache)
+            self.jogos_do_dia = jogos_atualizados
+            self.atualizar_lista_jogos()
+            
+            tempo_agora = datetime.now().strftime('%H:%M:%S')
+            self.status_jogos.config(
+                text=f"🔄 {len(self.jogos_do_dia)} jogos atualizados (sem cache) - {tempo_agora}", 
+                style='Success.TLabel'
+            )
+            
+        except Exception as e:
+            self.status_jogos.config(text=f"❌ Erro ao atualizar: {str(e)}", style='Warning.TLabel')
+            print(f"Erro detalhado: {e}")
     
     # Métodos auxiliares
     def formatar_horario(self, start_time):
@@ -1628,10 +2254,22 @@ class BetBoosterV2:
             return ""
         
         try:
-            dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            dt_local = dt - timedelta(hours=3)  # GMT-3
-            return dt_local.strftime('%H:%M')
-        except:
+            # Se já estiver no formato HH:MM, retorna direto
+            if isinstance(start_time, str) and len(start_time) == 5 and ':' in start_time:
+                return start_time
+            
+            # Converter de ISO para datetime
+            if isinstance(start_time, str):
+                if 'T' in start_time:
+                    dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                    dt_local = dt - timedelta(hours=3)  # GMT-3
+                    return dt_local.strftime('%H:%M')
+                else:
+                    return start_time  # Já está em formato simples
+            
+            return ""
+        except Exception as e:
+            print(f"Erro ao formatar horário {start_time}: {e}")
             return ""
     
     def calcular_prob_over_under(self, gols_esperados, linha, tipo):
@@ -1856,53 +2494,6 @@ class BetBoosterV2:
             messagebox.showerror("Erro", f"Erro ao salvar relatório: {str(e)}")
     
     # Métodos auxiliares adicionais
-    def calcular_prob_jogo_selecionado(self):
-        """Calcula probabilidades do jogo selecionado"""
-        if not hasattr(self, 'jogo_selecionado_index'):
-            messagebox.showwarning("Aviso", "Selecione um jogo primeiro")
-            return
-        
-        jogo = self.jogos_do_dia[self.jogo_selecionado_index]
-        
-        try:
-            # Buscar estatísticas
-            stats = self.api.buscar_estatisticas_detalhadas_time(jogo['id'])
-            if not stats:
-                messagebox.showerror("Erro", "Não foi possível obter estatísticas")
-                return
-            
-            # Calcular probabilidades
-            probabilidades = self.calcular_probabilidades_completas(stats, self.modo_analise.get())
-            
-            # Exibir resultado
-            casa = jogo.get('home_team', jogo.get('time_casa', ''))
-            visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
-            
-            resultado = f"""
-🎲 PROBABILIDADES CALCULADAS
-═══════════════════════════════════════
-
-🏠 {casa} vs ✈️ {visitante}
-
-📊 RESULTADOS:
-🏠 Vitória Casa: {probabilidades['vitoria_casa']:.1f}%
-🤝 Empate: {probabilidades['empate']:.1f}%
-✈️ Vitória Visitante: {probabilidades['vitoria_visitante']:.1f}%
-
-⚽ GOLS ESPERADOS:
-🏠 Casa: {probabilidades['gols_esperados_casa']:.2f}
-✈️ Visitante: {probabilidades['gols_esperados_visitante']:.2f}
-🎯 Total: {probabilidades['gols_esperados_total']:.2f}
-
-📈 MERCADOS DE GOLS:
-Over 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'over'):.1f}%
-Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under'):.1f}%
-"""
-            
-            messagebox.showinfo("Probabilidades", resultado)
-            
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao calcular probabilidades: {str(e)}")
     
     def carregar_dados(self):
         """Carrega dados salvos"""
@@ -1971,20 +2562,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         # Abrir janela de seleção de aposta
         self.abrir_janela_selecao_aposta(jogo)
     
-    def editar_jogo_ao_vivo(self):
-        """Edita informações de jogo ao vivo"""
-        if not hasattr(self, 'jogo_selecionado_index'):
-            messagebox.showwarning("Aviso", "Selecione um jogo primeiro")
-            return
-        
-        jogo = self.jogos_do_dia[self.jogo_selecionado_index]
-        
-        if jogo.get('status_calculado') != "🔴 AO VIVO":
-            messagebox.showwarning("Aviso", "Este jogo não está ao vivo")
-            return
-        
-        # Abrir janela de edição ao vivo
-        self.abrir_janela_edicao_ao_vivo(jogo)
+
     
     def abrir_janela_aposta_simples(self, jogo):
         """Abre janela para calcular aposta simples"""
@@ -2437,25 +3015,25 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 is_vencedor = tipo_aposta in ["Vitória Casa", "Empate", "Vitória Visitante"]
                 
                 if is_vencedor:
-                    # Regras para vencedor: Forte: value >= 5% E prob_impl >= 35%
-                    # Arriscada: value >= 15% E prob_impl < 35%
-                    if value_percent >= 5 and prob_implicita >= 35:
+                    # Regras para vencedor: Forte: value >= 5% E prob_impl >= 33%
+                    # Arriscada: value >= 15% E prob_impl < 33%
+                    if value_percent >= 5 and prob_implicita >= 33:
                         relatorio += "✅ RECOMENDAÇÃO: APOSTA FORTE!\n"
-                        relatorio += "🔥 Value >= 5% com probabilidade implícita >= 35%\n"
-                    elif value_percent >= 15 and prob_implicita < 35:
+                        relatorio += "🔥 Value >= 5% com probabilidade implícita >= 33%\n"
+                    elif value_percent >= 15 and prob_implicita < 33:
                         relatorio += "⚠️ RECOMENDAÇÃO: APOSTA ARRISCADA!\n"
-                        relatorio += "🟡 Value >= 15% com probabilidade implícita < 35%\n"
+                        relatorio += "🟡 Value >= 15% com probabilidade implícita < 33%\n"
                     else:
                         relatorio += "❌ NÃO RECOMENDADO - Não atende aos critérios\n"
                 else:
-                    # Regras para Over/Under: Forte: prob_impl >= 35% E value >= 5%
-                    # Arriscada: prob_impl < 35% E value >= 15%
-                    if prob_implicita >= 35 and value_percent >= 5:
+                    # Regras para Over/Under: Forte: prob_impl >= 33% E value >= 5%
+                    # Arriscada: prob_impl < 33% E value >= 15%
+                    if prob_implicita >= 33 and value_percent >= 5:
                         relatorio += "✅ RECOMENDAÇÃO: APOSTA FORTE!\n"
-                        relatorio += "🔥 Probabilidade implícita >= 35% com value >= 5%\n"
-                    elif prob_implicita < 35 and value_percent >= 15:
+                        relatorio += "🔥 Probabilidade implícita >= 33% com value >= 5%\n"
+                    elif prob_implicita < 33 and value_percent >= 15:
                         relatorio += "⚠️ RECOMENDAÇÃO: APOSTA ARRISCADA!\n"
-                        relatorio += "🟡 Probabilidade implícita < 35% com value >= 15%\n"
+                        relatorio += "🟡 Probabilidade implícita < 33% com value >= 15%\n"
                     else:
                         relatorio += "❌ NÃO RECOMENDADO - Não atende aos critérios\n"
         
