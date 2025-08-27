@@ -372,11 +372,11 @@ class BetBoosterV2:
             else:
                 apostas_todas.extend(apostas_hot_amanha)
             
-            # Combinar e ordenar apostas por VALUE
+            # Combinar e ordenar apostas por prob. bet booster
             self.apostas_hot_carregadas = apostas_todas
             self.apostas_hot_carregadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,
-                -x.get('value', 0)  # Ordenar por VALUE (maior para menor)
+                -x.get('nossa_prob', 0)  # Ordenar por prob. bet booster (maior para menor)
             ))
             
             print(f"✅ {len(self.apostas_hot_carregadas)} apostas hot analisadas e prontas")
@@ -834,7 +834,7 @@ class BetBoosterV2:
         self.filtrar_jogos()
     
     def atualizar_apostas_hot_interface(self, apostas_lista=None):
-        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada por VALUE"""
+        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada por prob. bet booster"""
         try:
             # Limpar frame
             for widget in self.apostas_hot_frame.winfo_children():
@@ -848,8 +848,8 @@ class BetBoosterV2:
                          style='Subtitle.TLabel').pack(pady=20)
                 return
             
-            # Ordenar apostas por VALUE (do maior para o menor)
-            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: x.get('value', 0), reverse=True)
+            # Ordenar apostas por prob. bet booster (do maior para o menor)
+            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: x.get('nossa_prob', 0), reverse=True)
             
             # Adicionar apostas ordenadas
             for i, aposta in enumerate(apostas_ordenadas):
@@ -1645,10 +1645,10 @@ class BetBoosterV2:
                     continue
                 time.sleep(0.3)  # Pausa entre requisições
             
-            # Ordenar por VALUE (maior para menor) como critério principal
+            # Ordenar por prob. bet booster (maior para menor) como critério principal
             apostas_recomendadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,  # Hoje primeiro
-                -x.get('value', 0)  # Depois por VALUE (maior para menor)
+                -x.get('nossa_prob', 0)  # Depois por prob. bet booster (maior para menor)
             ))
             
             # Exibir apostas hot
@@ -1941,9 +1941,9 @@ class BetBoosterV2:
         return recomendacoes
     
     def exibir_apostas_hot(self, apostas):
-        """Exibe as apostas hot na interface ordenadas por VALUE (maior para menor)"""
-        # Ordenar apostas por VALUE (do maior para o menor)
-        apostas_ordenadas = sorted(apostas, key=lambda x: x.get('value', 0), reverse=True)
+        """Exibe as apostas hot na interface ordenadas por prob. bet booster (maior para menor)"""
+        # Ordenar apostas por prob. bet booster (do maior para o menor)
+        apostas_ordenadas = sorted(apostas, key=lambda x: x.get('nossa_prob', 0), reverse=True)
         self.apostas_hot = apostas_ordenadas  # Armazenar para filtros
         self.atualizar_apostas_hot_interface()
         self.aplicar_filtros_hot()  # Aplicar filtros atuais
