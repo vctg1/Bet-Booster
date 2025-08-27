@@ -328,30 +328,28 @@ class RadarEsportivoAPI:
             print(f"❌ Erro inesperado ao buscar partidas: {e}")
             return []
 
-    def buscar_estatisticas_time(self, match_id, field='home', usar_mesmo_campo=True, window='last10'):
+    def buscar_estatisticas_time(self, match_id, field='home', window='last10'):
         """
         Busca estatísticas reais de um time baseado no match ID
         
         Args:
             match_id: ID da partida
             field: 'home' ou 'away' 
-            usar_mesmo_campo: True para sameField (casa em casa, fora fora), False para anyField
             window: 'last10' para últimos 10 jogos
         
         Returns:
             dict: Estatísticas calculadas do time
         """
         try:
-            mode = 'sameField' if usar_mesmo_campo else 'anyField'
             url = f"{self.base_url}/goalRadar/{match_id}"
             
             params = {
                 'field': field,
                 'window': window,
-                'mode': mode
+                'mode': 'anyField'
             }
             
-            print(f"🔍 Buscando estatísticas do time {field} - Match ID: {match_id} (modo: {mode})")
+            print(f"🔍 Buscando estatísticas do time {field} - Match ID: {match_id} (modo: anyField)")
             
             response = self.session.get(url, params=params, timeout=10)
             response.raise_for_status()
@@ -363,7 +361,7 @@ class RadarEsportivoAPI:
                 return None
             
             # Extrair estatísticas dos dados
-            estatisticas = self.processar_estatisticas_time(data, field, mode)
+            estatisticas = self.processar_estatisticas_time(data, field, 'anyField')
             
             print(f"✅ Estatísticas obtidas: {estatisticas['media_gols_marcados']:.2f} gols/jogo (marcados), {estatisticas['media_gols_sofridos']:.2f} gols/jogo (sofridos)")
             
@@ -383,7 +381,7 @@ class RadarEsportivoAPI:
         Args:
             data: Dados da API goalRadar
             field: Campo do time (home/away)
-            mode: Modo da busca (sameField/anyField)
+            mode: Modo da busca (anyField)
         
         Returns:
             dict: Estatísticas processadas
@@ -466,7 +464,7 @@ class RadarEsportivoAPI:
     def buscar_estatisticas_detalhadas_time(self, match_id):
         """
         Busca estatísticas detalhadas de ambos os times de um jogo específico
-        Inclui dados separados para casa/fora e dados gerais
+        USA APENAS DADOS GERAIS (anyField) - sem separação casa/fora
         
         Args:
             match_id: ID da partida
@@ -477,36 +475,18 @@ class RadarEsportivoAPI:
         try:
             print(f"📊 Buscando estatísticas detalhadas para Match ID: {match_id}")
             
-            # Buscar estatísticas do time da casa
-            stats_casa_casa = self.buscar_estatisticas_time(match_id, 'home', usar_mesmo_campo=True)  # Casa jogando em casa
-            time.sleep(0.3)
-            stats_casa_geral = self.buscar_estatisticas_time(match_id, 'home', usar_mesmo_campo=False)  # Casa geral
-            time.sleep(0.3)
+            # Buscar APENAS estatísticas gerais (anyField) - sem delay
+            stats_casa_geral = self.buscar_estatisticas_time(match_id, 'home')  # Casa geral
+            stats_visitante_geral = self.buscar_estatisticas_time(match_id, 'away')  # Visitante geral
             
-            # Buscar estatísticas do time visitante  
-            stats_visitante_fora = self.buscar_estatisticas_time(match_id, 'away', usar_mesmo_campo=True)  # Visitante jogando fora
-            time.sleep(0.3)
-            stats_visitante_geral = self.buscar_estatisticas_time(match_id, 'away', usar_mesmo_campo=False)  # Visitante geral
-            
-            if not all([stats_casa_casa, stats_casa_geral, stats_visitante_fora, stats_visitante_geral]):
-                print("❌ Não foi possível obter todas as estatísticas detalhadas")
+            if not all([stats_casa_geral, stats_visitante_geral]):
+                print("❌ Não foi possível obter estatísticas gerais")
                 return None
             
             estatisticas_detalhadas = {
                 'match_id': match_id,
                 'time_casa': {
-                    'nome': stats_casa_casa.get('nome', 'Time Casa'),
-                    'casa': {
-                        'gols_marcados': stats_casa_casa['media_gols_marcados'],
-                        'gols_sofridos': stats_casa_casa['media_gols_sofridos'],
-                        'vitorias': stats_casa_casa['vitorias'],
-                        'empates': stats_casa_casa['empates'],
-                        'derrotas': stats_casa_casa['derrotas'],
-                        'btts': stats_casa_casa['btts_jogos'],
-                        'over15': stats_casa_casa['over15_jogos'],
-                        'over25': stats_casa_casa['over25_jogos'],
-                        'forma': stats_casa_casa['forma_recente']
-                    },
+                    'nome': stats_casa_geral.get('nome', 'Time Casa'),
                     'geral': {
                         'gols_marcados': stats_casa_geral['media_gols_marcados'],
                         'gols_sofridos': stats_casa_geral['media_gols_sofridos'],
@@ -520,18 +500,7 @@ class RadarEsportivoAPI:
                     }
                 },
                 'time_visitante': {
-                    'nome': stats_visitante_fora.get('nome', 'Time Visitante'),
-                    'fora': {
-                        'gols_marcados': stats_visitante_fora['media_gols_marcados'],
-                        'gols_sofridos': stats_visitante_fora['media_gols_sofridos'],
-                        'vitorias': stats_visitante_fora['vitorias'],
-                        'empates': stats_visitante_fora['empates'],
-                        'derrotas': stats_visitante_fora['derrotas'],
-                        'btts': stats_visitante_fora['btts_jogos'],
-                        'over15': stats_visitante_fora['over15_jogos'],
-                        'over25': stats_visitante_fora['over25_jogos'],
-                        'forma': stats_visitante_fora['forma_recente']
-                    },
+                    'nome': stats_visitante_geral.get('nome', 'Time Visitante'),
                     'geral': {
                         'gols_marcados': stats_visitante_geral['media_gols_marcados'],
                         'gols_sofridos': stats_visitante_geral['media_gols_sofridos'],
@@ -554,13 +523,13 @@ class RadarEsportivoAPI:
             print(f"❌ Erro ao buscar estatísticas detalhadas: {str(e)}")
             return None
     
-    def buscar_estatisticas_confronto(self, match_id, usar_mesmo_campo=True):
+    def buscar_estatisticas_confronto(self, match_id):
         """
         Busca estatísticas de ambos os times de um confronto
+        USA APENAS DADOS GERAIS (anyField)
         
         Args:
             match_id: ID da partida
-            usar_mesmo_campo: True para sameField, False para anyField
         
         Returns:
             dict: Estatísticas de ambos os times
@@ -568,12 +537,11 @@ class RadarEsportivoAPI:
         try:
             print(f"📊 Buscando estatísticas completas do confronto - Match ID: {match_id}")
             
-            # Buscar dados do time da casa
-            stats_casa = self.buscar_estatisticas_time(match_id, 'home', usar_mesmo_campo)
-            time.sleep(0.5)  # Pausa entre requisições
+            # Buscar APENAS dados gerais (anyField) - sem delay
+            stats_casa = self.buscar_estatisticas_time(match_id, 'home')
             
             # Buscar dados do time visitante
-            stats_visitante = self.buscar_estatisticas_time(match_id, 'away', usar_mesmo_campo)
+            stats_visitante = self.buscar_estatisticas_time(match_id, 'away')
             
             if not stats_casa or not stats_visitante:
                 print("❌ Não foi possível obter estatísticas completas")
@@ -581,8 +549,7 @@ class RadarEsportivoAPI:
             
             confronto = {
                 'match_id': match_id,
-                'usar_mesmo_campo': usar_mesmo_campo,
-                'mode': 'sameField' if usar_mesmo_campo else 'anyField',
+                'mode': 'anyField',
                 'time_casa': stats_casa,
                 'time_visitante': stats_visitante,
                 'timestamp': datetime.now().isoformat()
