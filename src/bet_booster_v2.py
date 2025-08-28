@@ -1900,13 +1900,13 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar NOVAS regras para apostas Over/Under:
-                    # Forte: Prob. Bet365 >= 45%, value >= 15%
+                    # Forte: Prob. Bet365 >= 43.5%, value >= 15%
                     # Moderada: Prob. Bet365 >= 35%, value >= 15%
                     # Arriscada: Prob. Bet365 >= 20% E < 35%, value >= 15%
                     # Muito Arriscada: Prob. Bet365 >= 5% E < 20%, value >= 30%
                     tipo_recomendacao = None
                     
-                    if value_percent >= 15 and prob_impl >= 45:
+                    if value_percent >= 15 and prob_impl >= 43.5:
                         tipo_recomendacao = "FORTE"
                     elif value_percent >= 15 and prob_impl >= 35:
                         tipo_recomendacao = "MODERADA"
