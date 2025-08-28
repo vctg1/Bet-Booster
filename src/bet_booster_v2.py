@@ -1836,19 +1836,19 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar NOVAS regras para apostas de vencedor:
-                    # Forte: Prob. Bet365 >= 40%, value >= 10%
-                    # Moderada: Prob. Bet365 >= 30%, value >= 10%
-                    # Arriscada: Prob. Bet365 >= 15% E < 30%, value >= 10%
-                    # Muito Arriscada: Prob. Bet365 >= 5% E < 15%, value >= 30%
+                    # Forte: Prob. Bet365 >= 40%, value > 0%
+                    # Moderada: Prob. Booster >= 40%, Prob. Bet365 >= 30%, value > 0%
+                    # Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 15% E < 30%, value > 0%
+                    # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if value_percent >= 10 and prob_impl >= 40:
+                    if odd >= 1.7 and value_percent > 0 and prob_impl >= 40:
                         tipo_recomendacao = "FORTE"
-                    elif value_percent >= 10 and prob_impl >= 30:
+                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 30:
                         tipo_recomendacao = "MODERADA"
-                    elif value_percent >= 10 and prob_impl >= 15 and prob_impl < 30:
+                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 15 and prob_impl < 30:
                         tipo_recomendacao = "ARRISCADA"
-                    elif value_percent >= 30 and prob_impl >= 5 and prob_impl < 15:
+                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 5 and prob_impl < 15:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -1900,19 +1900,19 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Aplicar NOVAS regras para apostas Over/Under:
-                    # Forte: Prob. Bet365 >= 43.5%, value >= 15%
-                    # Moderada: Prob. Bet365 >= 35%, value >= 15%
-                    # Arriscada: Prob. Bet365 >= 20% E < 35%, value >= 15%
-                    # Muito Arriscada: Prob. Bet365 >= 5% E < 20%, value >= 30%
+                    # Forte: Prob. Booster > 50%, Prob. Bet365 >= 45%, value > 0
+                    # Moderada: Prob. Booster > 50%, Prob. Bet365 >= 35%, value > 0
+                    # Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 20% E < 35%, value > 0
+                    # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if value_percent >= 15 and prob_impl >= 43.5:
+                    if odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 45:
                         tipo_recomendacao = "FORTE"
-                    elif value_percent >= 15 and prob_impl >= 35:
+                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 35:
                         tipo_recomendacao = "MODERADA"
-                    elif value_percent >= 15 and prob_impl >= 20 and prob_impl < 35:
+                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 20 and prob_impl < 35:
                         tipo_recomendacao = "ARRISCADA"
-                    elif value_percent >= 30 and prob_impl >= 5 and prob_impl < 20:
+                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 5 and prob_impl < 20:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
