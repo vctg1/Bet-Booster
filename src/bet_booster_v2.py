@@ -1842,13 +1842,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and odd <= 2.3 and prob_calc > 40 and value_percent > 0:
+                    if odd >= 1.7 and odd <= 2.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and odd <= 4.5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 3.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and odd <= 6.5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 4.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.7 and odd <= 10 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 5.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -1906,13 +1906,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and odd <= 2.3 and prob_calc > 50 and value_percent > 0:
+                    if odd >= 1.7 and odd <= 2.1 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and odd <= 4.5 and prob_calc > 50 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 3 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and odd <= 6.5 and prob_calc > 50 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 4 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.7 and odd <= 10 and prob_calc > 50 and value_percent > 0:
+                    elif odd >= 1.7 and odd <= 5 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
