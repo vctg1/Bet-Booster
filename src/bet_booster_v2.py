@@ -58,7 +58,7 @@ class BetBoosterV2:
         
         subtitle_label = tk.Label(self.loading_frame, text="Sistema Avançado de Análise de Apostas", 
                                  font=('Arial', 14), fg='#374151', bg='#f0f0f0')
-        subtitle_label.pack(pady=(0, 50))
+        subtitle_label.pack(pady=(0, 100))
         
         # Barra de progresso
         self.progress_var = tk.DoubleVar()
@@ -319,19 +319,19 @@ class BetBoosterV2:
             
             time.sleep(0.3)
             
-            # Etapa 5: Preparar os primeiros 50 jogos para análise
-            self.atualizar_loading(50, "Preparando primeiros 50 jogos para análise...")
+            # Etapa 5: Preparar os primeiros 100 jogos para análise
+            self.atualizar_loading(100, "Preparando primeiros 100 jogos para análise...")
             
-            # Se não há cache, processar os primeiros 50 jogos
+            # Se não há cache, processar os primeiros 100 jogos
             if not cache_hoje and jogos_hoje:
-                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:50])
-                print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise (limitado a 50)")
+                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:100])
+                print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise (limitado a 100)")
             else:
                 jogos_validos_hoje = []
                 
             if not cache_amanha and jogos_amanha:
-                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:50])
-                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise (limitado a 50)")
+                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:100])
+                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise (limitado a 100)")
             else:
                 jogos_validos_amanha = []
             
@@ -428,12 +428,12 @@ class BetBoosterV2:
         return self.processar_todos_jogos(jogos)
     
     def analisar_jogos_completo(self, jogos, periodo):
-        """Analisa completamente os primeiros jogos de uma lista (limitado a 50) - VERSÃO PARALELA"""
+        """Analisa completamente os primeiros jogos de uma lista (limitado a 100) - VERSÃO PARALELA"""
         apostas_analisadas = []
         jogos_com_odds = []  # Lista para jogos enriquecidos com odds
-        
-        print(f"🔥 Iniciando análise completa PARALELA de {len(jogos)} jogos ({periodo}) - limitado a 50 primeiros")
-        
+
+        print(f"🔥 Iniciando análise completa PARALELA de {len(jogos)} jogos ({periodo}) - limitado a 100 primeiros")
+
         # Usar ThreadPoolExecutor para processamento paralelo
         max_workers = 10  # Máximo 10 threads simultâneas para não sobrecarregar API
         
@@ -478,9 +478,9 @@ class BetBoosterV2:
         """Versão original - mantida como backup"""
         apostas_analisadas = []
         jogos_com_odds = []
-        
-        print(f"🔥 Iniciando análise completa de {len(jogos)} jogos ({periodo}) - limitado a 50 primeiros")
-        
+
+        print(f"🔥 Iniciando análise completa de {len(jogos)} jogos ({periodo}) - limitado a 100 primeiros")
+
         for i, jogo in enumerate(jogos):
             try:
                 # Atualizar status de progresso
@@ -1842,13 +1842,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and value_percent > 0 and prob_impl >= 40:
+                    if odd >= 1.7 and odd <= 2.3 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 30:
+                    elif odd >= 1.7 and odd <= 4.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "MODERADA"
-                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 15 and prob_impl < 30:
+                    elif odd >= 1.7 and odd <= 6.5 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "ARRISCADA"
-                    elif prob_calc >= 40 and odd >= 1.7 and value_percent > 0 and prob_impl >= 5 and prob_impl < 15:
+                    elif odd >= 1.7 and odd <= 10 and prob_calc > 40 and value_percent > 0:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -1906,13 +1906,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 45:
+                    if odd >= 1.7 and odd <= 2.3 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 35:
+                    elif odd >= 1.7 and odd <= 4.5 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 20 and prob_impl < 35:
+                    elif odd >= 1.7 and odd <= 6.5 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.7 and prob_calc > 50 and value_percent > 10 and prob_impl >= 5 and prob_impl < 20:
+                    elif odd >= 1.7 and odd <= 10 and prob_calc > 50 and value_percent > 0:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
