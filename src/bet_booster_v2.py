@@ -1806,10 +1806,10 @@ class BetBoosterV2:
             if 'resultFt' in odds:
                 result_odds = odds['resultFt']
                 
-                # Calcular probabilidades implícitas
-                prob_casa_implicita = 1 / result_odds['home'] * 100
-                prob_empate_implicita = 1 / result_odds['draw'] * 100
-                prob_fora_implicita = 1 / result_odds['away'] * 100
+                # Calcular probabilidades implícitas considerando margem da casa (7.5%)
+                prob_casa_implicita = self.calcular_prob_implicita(result_odds['home'])
+                prob_empate_implicita = self.calcular_prob_implicita(result_odds['draw'])
+                prob_fora_implicita = self.calcular_prob_implicita(result_odds['away'])
                 
                 # Comparar com probabilidades Bet Booster calculadas
                 prob_casa_calc = probabilidades.get('vitoria_casa', 0)
@@ -1842,13 +1842,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd >= 1.5 and odd <= 2.3 and value_percent > 0:
+                    if odd >= 1.5 and odd <= 2.25 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.5 and odd <= 3 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 3 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.5 and odd <= 4 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 4 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.5 and odd <= 5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 5 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -1882,9 +1882,9 @@ class BetBoosterV2:
                 prob_over25_calc = self.calcular_prob_over_under(gols_esperados, 2.5, 'over')
                 prob_under25_calc = 100 - prob_over25_calc
                 
-                # Probabilidades implícitas
-                prob_over25_impl = 1 / gols_odds['over'] * 100
-                prob_under25_impl = 1 / gols_odds['under'] * 100
+                # Probabilidades implícitas considerando margem da casa (7.5%)
+                prob_over25_impl = self.calcular_prob_implicita(gols_odds['over'])
+                prob_under25_impl = self.calcular_prob_implicita(gols_odds['under'])
                 
                 # Value bets
                 value_over = (prob_over25_calc / prob_over25_impl) if prob_over25_impl > 0 else 0
@@ -1906,13 +1906,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd >= 1.5 and odd <= 1.8 and prob_calc > 40 and value_percent > 0:
+                    if odd >= 1.5 and odd <= 1.85 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.5 and odd <= 2.5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 2.5 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.5 and odd <= 3.5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 3.5 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.5 and odd <= 5 and prob_calc > 40 and value_percent > 0:
+                    elif odd >= 1.5 and odd <= 5 and prob_calc > 40 and (value_percent > 0 or prob_calc > 50):
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -2581,6 +2581,28 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
             print(f"Erro ao formatar horário {start_time}: {e}")
             return ""
     
+    def calcular_prob_implicita(self, odd, margem_casa=7.5):
+        """Calcula probabilidade implícita considerando margem da casa de apostas
+        
+        Args:
+            odd (float): Odd oferecida pela casa de apostas
+            margem_casa (float): Margem da casa em porcentagem (padrão 7.5%)
+        
+        Returns:
+            float: Probabilidade implícita real em porcentagem
+        """
+        if odd <= 1:
+            return 0
+        
+        # Calcular probabilidade bruta
+        prob_bruta = (1 / odd) * 100
+        
+        # Remover a margem da casa para obter probabilidade real
+        # Formula: prob_real = prob_bruta / (1 - margem/100)
+        prob_real = prob_bruta / (1 - (margem_casa / 100))
+        
+        return min(prob_real, 100)  # Limitar a 100%
+    
     def calcular_prob_over_under(self, gols_esperados, linha, tipo):
         """Calcula probabilidade de over/under usando distribuição de Poisson"""
         from math import exp, factorial
@@ -2630,7 +2652,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
             odd_total *= aposta['odd']
         
         # Atualizar labels
-        prob_total_implicita = (1 / odd_total * 100) if odd_total > 0 else 0
+        prob_total_implicita = self.calcular_prob_implicita(odd_total) if odd_total > 0 else 0
         
         # Calcular probabilidade Bet Booster combinada
         prob_nossa_combinada = 1.0
@@ -2698,7 +2720,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                     nossa_prob = nossa_prob / 100
                 prob_nossa_total *= nossa_prob
         
-        prob_total = (1 / odd_total * 100) if odd_total > 0 else 0
+        prob_total = self.calcular_prob_implicita(odd_total) if odd_total > 0 else 0
         prob_nossa_percentual = prob_nossa_total * 100
         
         ttk.Label(resumo_frame, text=f"📋 Apostas: {len(self.apostas_multipla)}", 
@@ -3285,8 +3307,8 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         casa = jogo.get('home_team', jogo.get('time_casa', ''))
         visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
         
-        # Calcular probabilidade Bet365
-        prob_implicita = (1 / odd * 100) if odd > 0 else 0
+        # Calcular probabilidade Bet365 considerando margem da casa
+        prob_implicita = self.calcular_prob_implicita(odd) if odd > 0 else 0
         
         # Calcular probabilidade Bet Booster baseada no tipo de aposta
         nossa_prob = 0
@@ -3497,7 +3519,7 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 prob_nossa = self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under')
             
             if odd_aposta and prob_nossa:
-                prob_implicita = (1 / odd_aposta * 100)
+                prob_implicita = self.calcular_prob_implicita(odd_aposta)
                 value_bet = (prob_nossa / prob_implicita)
                 retorno_potencial = valor * odd_aposta
                 lucro_potencial = retorno_potencial - valor
