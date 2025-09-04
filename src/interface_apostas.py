@@ -1219,9 +1219,10 @@ ANÁLISE COMPLETA DO CONFRONTO
                 odd_b = float(self.entry_odd_b.get().replace(',', '.'))
                 
                 # Probabilidades implícitas das odds
-                prob_impl_a = 1 / odd_a
-                prob_impl_empate = 1 / odd_empate
-                prob_impl_b = 1 / odd_b
+                # Calcular probabilidades implícitas com margem de 7.5%
+                prob_impl_a = (1 / odd_a) * (1 - 0.075)
+                prob_impl_empate = (1 / odd_empate) * (1 - 0.075)
+                prob_impl_b = (1 / odd_b) * (1 - 0.075)
                 
                 margem_casa = (prob_impl_a + prob_impl_empate + prob_impl_b - 1) * 100
                 
@@ -1400,7 +1401,8 @@ ANÁLISE COMPLETA DO CONFRONTO
             lucro_potencial = retorno_potencial - valor
             
             # Análise de value com critérios ajustados
-            prob_implicita = 1 / odd
+            # Calcular probabilidade implícita com margem de 7.5%
+            prob_implicita = (1 / odd) * (1 - 0.075)
             vantagem = (probabilidade - prob_implicita) / prob_implicita * 100
             
             # Determinar tipo de recomendação
