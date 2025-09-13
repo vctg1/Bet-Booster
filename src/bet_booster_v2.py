@@ -1842,13 +1842,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and odd <= 2.35 and value_percent > 0:
+                    if odd >= 1.7 and odd <= 2.1 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and prob_impl >= 30 and prob_calc >= 40 and value_percent > 0:
+                    elif odd >= 1.7 and prob_impl >= 40 and prob_calc > 60:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and prob_impl >= 20 and prob_calc >= 40 and value_percent > 0:
+                    elif odd >= 1.7 and prob_impl >= 30 and prob_calc > 60:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.7 and prob_impl >= 10 and prob_calc >= 40 and value_percent > 0:
+                    elif odd >= 1.7 and prob_impl >= 20 and prob_calc > 60:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -1906,13 +1906,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd >= 1.7 and odd <= 1.9 and prob_calc >= 60:
+                    if odd >= 1.5 and odd <= 1.8 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and prob_impl >= 40 and prob_calc >= 60 and value_percent > 0:
+                    elif odd >= 1.5 and prob_impl >= 50 and prob_calc > 60:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and prob_impl >= 30 and prob_calc >= 60 and value_percent > 0:
+                    elif odd >= 1.5 and prob_impl >= 40 and prob_calc > 60:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 1.7 and prob_impl >= 20 and prob_calc >= 60 and value_percent > 0:
+                    elif odd >= 1.5 and prob_impl >= 30 and prob_calc > 60:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -2607,8 +2607,69 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
         messagebox.showinfo("Sucesso", f"Aposta adicionada à múltipla: {aposta['aposta']}")
     
     def ver_analise_completa(self, aposta):
-        """Mostra análise completa de uma aposta"""
-        messagebox.showinfo("Análise", f"Análise completa de: {aposta['aposta']}")
+        """Mostra análise completa de uma aposta com probabilidades dos resultados"""
+        try:
+            # Buscar o match_id da aposta
+            match_id = aposta.get('match_id')
+            if not match_id:
+                messagebox.showerror("Erro", "ID da partida não encontrado")
+                return
+            
+            # Buscar estatísticas detalhadas
+            stats = self.api.buscar_estatisticas_detalhadas_time(match_id)
+            if not stats:
+                messagebox.showerror("Erro", "Não foi possível obter estatísticas da partida")
+                return
+            
+            # Calcular probabilidades
+            probabilidades = self.calcular_probabilidades_completas(stats, "Geral")
+            
+            # Extrair nomes dos times da aposta
+            partes_jogo = aposta['jogo'].split(' vs ')
+            if len(partes_jogo) == 2:
+                casa, visitante = partes_jogo
+            else:
+                casa = stats['time_casa']['nome']
+                visitante = stats['time_visitante']['nome']
+            
+            # Formatar resultado completo
+            resultado = f"""
+🎲 ANÁLISE COMPLETA - {aposta['periodo']}
+═══════════════════════════════════════
+
+🏠 {casa} vs ✈️ {visitante}
+🏆 {aposta['liga']} | ⏰ {aposta['horario']}
+
+📊 RESULTADOS:
+🏠 Vitória {casa}: {probabilidades['vitoria_casa']:.1f}%
+🤝 Empate: {probabilidades['empate']:.1f}%
+✈️ Vitória {visitante}: {probabilidades['vitoria_visitante']:.1f}%
+
+⚽ GOLS ESPERADOS:
+🏠 {casa}: {probabilidades['gols_esperados_casa']:.2f}
+✈️ {visitante}: {probabilidades['gols_esperados_visitante']:.2f}
+🎯 Total: {probabilidades['gols_esperados_total']:.2f}
+
+📈 MERCADOS DE GOLS:
+Over 1.5: {probabilidades['over_15']:.1f}%
+Under 1.5: {probabilidades['under_15']:.1f}%
+Over 2.5: {probabilidades['over_25']:.1f}%
+Under 2.5: {probabilidades['under_25']:.1f}%
+Over 3.5: {probabilidades['over_35']:.1f}%
+Under 3.5: {probabilidades['under_35']:.1f}%
+
+💰 APOSTA RECOMENDADA:
+{aposta['aposta']} (Odd: {aposta['odd']:.2f})
+📊 Prob. Bet Booster: {aposta['nossa_prob']:.1f}%
+📈 Prob. Bet365: {aposta['prob_implicita']:.1f}%
+💎 Value: {((aposta['value'] - 1) * 100):.1f}%
+🎯 Tipo: {aposta['tipo'].replace('_', ' ')}
+"""
+            
+            messagebox.showinfo(f"Análise Completa - {aposta['aposta']}", resultado)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar análise completa: {str(e)}")
     
     def atualizar_multipla(self):
         """Atualiza a visualização da múltipla"""
@@ -3430,13 +3491,30 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 prob_empate = (prob_empate / total) * 100
                 prob_vitoria_visitante = (prob_vitoria_visitante / total) * 100
             
+            # Calcular gols esperados total
+            gols_esperados_total = gols_esperados_casa + gols_esperados_visitante
+            
+            # Calcular probabilidades over/under para diferentes linhas
+            over_15 = self.calcular_prob_over_under(gols_esperados_total, 1.5, 'over')
+            under_15 = 100 - over_15
+            over_25 = self.calcular_prob_over_under(gols_esperados_total, 2.5, 'over')
+            under_25 = 100 - over_25
+            over_35 = self.calcular_prob_over_under(gols_esperados_total, 3.5, 'over')
+            under_35 = 100 - over_35
+            
             return {
                 'vitoria_casa': prob_vitoria_casa,
                 'empate': prob_empate,
                 'vitoria_visitante': prob_vitoria_visitante,
                 'gols_esperados_casa': gols_esperados_casa,
                 'gols_esperados_visitante': gols_esperados_visitante,
-                'gols_esperados_total': gols_esperados_casa + gols_esperados_visitante
+                'gols_esperados_total': gols_esperados_total,
+                'over_15': over_15,
+                'under_15': under_15,
+                'over_25': over_25,
+                'under_25': under_25,
+                'over_35': over_35,
+                'under_35': under_35
             }
             
         except Exception as e:
@@ -3445,7 +3523,15 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
                 'vitoria_casa': 33.33,
                 'empate': 33.33,
                 'vitoria_visitante': 33.33,
-                'gols_esperados_total': 2.5
+                'gols_esperados_casa': 1.25,
+                'gols_esperados_visitante': 1.25,
+                'gols_esperados_total': 2.5,
+                'over_15': 70.0,
+                'under_15': 30.0,
+                'over_25': 50.0,
+                'under_25': 50.0,
+                'over_35': 30.0,
+                'under_35': 70.0
             }
     
     def gerar_relatorio_aposta_simples(self, tipo_aposta, valor, probabilidades, odds_detalhadas, casa, visitante):
