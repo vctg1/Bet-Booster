@@ -834,7 +834,7 @@ class BetBoosterV2:
         self.filtrar_jogos()
     
     def atualizar_apostas_hot_interface(self, apostas_lista=None):
-        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada por prob. bet booster"""
+        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada pela média de probabilidades"""
         try:
             # Limpar frame
             for widget in self.apostas_hot_frame.winfo_children():
@@ -848,8 +848,8 @@ class BetBoosterV2:
                          style='Subtitle.TLabel').pack(pady=20)
                 return
             
-            # Ordenar apostas por prob. bet booster (do maior para o menor)
-            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            # Ordenar apostas pela média de probabilidades (prob_implicita + prob_calculada)
+            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: (x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2, reverse=True)
             
             # Adicionar apostas ordenadas
             for i, aposta in enumerate(apostas_ordenadas):
@@ -1471,7 +1471,10 @@ class BetBoosterV2:
             recomendacoes += f"🟢 FORTE: Empate ({maior_prob:.1f}%)\n"
         
         # Recomendações para gols
-        if probabilidades['over_25'] >= 60:
+        gols_esperados_total = probabilidades['gols_esperados_total']
+        
+        # Apenas recomendar over 2.5 se gols esperados > 4
+        if probabilidades['over_25'] >= 60 and gols_esperados_total >= 4.0:
             recomendacoes += f"🟢 FORTE: Over 2.5 gols ({probabilidades['over_25']:.1f}%)\n"
         elif probabilidades['under_25'] >= 60:
             recomendacoes += f"🟢 FORTE: Under 2.5 gols ({probabilidades['under_25']:.1f}%)\n"
@@ -1645,10 +1648,10 @@ class BetBoosterV2:
                     continue
                 time.sleep(0.3)  # Pausa entre requisições
             
-            # Ordenar por prob. bet booster (maior para menor) como critério principal
+            # Ordenar pela média de probabilidades (prob_implicita + prob_calculada)
             apostas_recomendadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,  # Hoje primeiro
-                -x.get('nossa_prob', 0)  # Depois por prob. bet booster (maior para menor)
+                -((x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2)  # Depois pela média de probabilidades (maior para menor)
             ))
             
             # Exibir apostas hot
@@ -1899,6 +1902,10 @@ class BetBoosterV2:
                     # Converter value para porcentagem
                     value_percent = (value - 1) * 100
                     
+                    # Filtrar apostas over 2.5 com poucos gols esperados
+                    if aposta == 'Over 2.5 gols' and gols_esperados < 4.0:
+                        continue  # Pular apostas over 2.5 quando gols esperados for menor que 4
+                    
                     # Aplicar NOVAS regras para apostas Over/Under:
                     # Forte: Prob. Booster > 50%, Prob. Bet365 >= 45%, value > 0
                     # Moderada: Prob. Booster > 50%, Prob. Bet365 >= 35%, value > 0
@@ -1941,9 +1948,9 @@ class BetBoosterV2:
         return recomendacoes
     
     def exibir_apostas_hot(self, apostas):
-        """Exibe as apostas hot na interface ordenadas por prob. bet booster (maior para menor)"""
-        # Ordenar apostas por prob. bet booster (do maior para o menor)
-        apostas_ordenadas = sorted(apostas, key=lambda x: x.get('nossa_prob', 0), reverse=True)
+        """Exibe as apostas hot na interface ordenadas pela média de probabilidades (maior para menor)"""
+        # Ordenar apostas pela média de probabilidades (prob_implicita + prob_calculada)
+        apostas_ordenadas = sorted(apostas, key=lambda x: (x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2, reverse=True)
         self.apostas_hot = apostas_ordenadas  # Armazenar para filtros
         self.atualizar_apostas_hot_interface()
         self.aplicar_filtros_hot()  # Aplicar filtros atuais
@@ -1954,9 +1961,27 @@ class BetBoosterV2:
         card_frame = ttk.LabelFrame(self.apostas_hot_frame, text="", padding=15)
         card_frame.pack(fill='x', pady=5, padx=10)
         
-        # Linha 1: Jogo e horário
+        # Linha 1: Jogo, horário e ranking
         linha1 = ttk.Frame(card_frame)
         linha1.pack(fill='x')
+        
+        # Adicionar número da posição e medalha (se for top 3)
+        if index == 0:
+            ranking_text = "🥇 #1"
+            ranking_color = "gold"
+        elif index == 1:
+            ranking_text = "🥈 #2"
+            ranking_color = "silver"
+        elif index == 2:
+            ranking_text = "🥉 #3"
+            ranking_color = "#CD7F32"  # Bronze
+        else:
+            ranking_text = f"#{index+1}"
+            ranking_color = "black"
+            
+        ranking_label = ttk.Label(linha1, text=ranking_text, font=('Arial', 10, 'bold'))
+        ranking_label.configure(foreground=ranking_color)
+        ranking_label.pack(side='left', padx=(0, 10))
         
         jogo_label = ttk.Label(linha1, text=aposta['jogo'], 
                               style='Subtitle.TLabel', font=('Arial', 12, 'bold'))
@@ -2023,6 +2048,17 @@ class BetBoosterV2:
         value_label = ttk.Label(linha4, text=f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%", 
                                style='Success.TLabel')
         value_label.pack(side='right')
+        
+        # Adicionar linha com a média das probabilidades
+        linha_media = ttk.Frame(card_frame)
+        linha_media.pack(fill='x', pady=(5, 0))
+        
+        media_prob = (aposta['prob_calculada'] + aposta['prob_implicita']) / 2
+        media_label = ttk.Label(linha_media, 
+                               text=f"⭐ Média Prob.: {media_prob:.1f}%",
+                               font=('Arial', 10, 'bold'))
+        media_label.configure(foreground='purple')
+        media_label.pack(side='left')
         
         # Botões de ação
         acoes_frame = ttk.Frame(card_frame)
