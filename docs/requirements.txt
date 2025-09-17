@@ -1,7 +1,7 @@
 # Bet Booster - Python Dependencies
 # API and HTTP requests
 requests>=2.32.0
-
+tkcalendar==1.6.1
 # GUI Framework
 tkinter  # Built-in with Python, included for documentation
 
