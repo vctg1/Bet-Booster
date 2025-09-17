@@ -7,6 +7,7 @@ Reestruturação completa com novas funcionalidades
 
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
+from tkcalendar import DateEntry
 import json
 import math
 from datetime import datetime, timedelta
@@ -93,44 +94,38 @@ class BetBoosterV2:
         return os.path.join(cache_dir, f'jogos_{data}.json')
     
     def limpar_cache_antigo(self):
-        """Limpa todos os arquivos de cache quando a data muda"""
+        """Limpa arquivos de cache com mais de 7 dias de idade"""
         try:
             cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
             if not os.path.exists(cache_dir):
                 return
             
-            data_hoje = datetime.now().strftime('%Y-%m-%d')
+            data_hoje = datetime.now()
             arquivos_removidos = 0
-            tem_cache_hoje = False
             
-            # Verificar se existe cache de hoje
+            # Verificar todos os arquivos de cache
             for arquivo in os.listdir(cache_dir):
                 if arquivo.startswith('jogos_') and arquivo.endswith('.json'):
-                    if data_hoje in arquivo:
-                        tem_cache_hoje = True
-                        break
-            
-            # Se não tem cache de hoje, limpar todos os caches antigos
-            if not tem_cache_hoje:
-                for arquivo in os.listdir(cache_dir):
-                    if arquivo.startswith('jogos_') and arquivo.endswith('.json'):
-                        # Extrair data do nome do arquivo
-                        try:
-                            data_str = arquivo.replace('jogos_', '').replace('.json', '')
-                            data_arquivo = datetime.strptime(data_str, '%Y-%m-%d')
-                            
-                            # Remover todos os caches de datas diferentes de hoje
-                            if data_arquivo.strftime('%Y-%m-%d') != data_hoje:
-                                arquivo_path = os.path.join(cache_dir, arquivo)
-                                os.remove(arquivo_path)
-                                arquivos_removidos += 1
-                                print(f"🗑️ Cache de data anterior removido: {arquivo}")
-                        except ValueError:
-                            # Nome de arquivo inválido, ignorar
-                            continue
+                    # Extrair data do nome do arquivo
+                    try:
+                        data_str = arquivo.replace('jogos_', '').replace('.json', '')
+                        data_arquivo = datetime.strptime(data_str, '%Y-%m-%d')
+                        
+                        # Calcular diferença de dias
+                        diferenca_dias = (data_hoje - data_arquivo).days
+                        
+                        # Remover arquivos com mais de 7 dias
+                        if diferenca_dias > 7:
+                            arquivo_path = os.path.join(cache_dir, arquivo)
+                            os.remove(arquivo_path)
+                            arquivos_removidos += 1
+                            print(f"🗑️ Cache antigo removido (mais de 7 dias): {arquivo}")
+                    except ValueError:
+                        # Nome de arquivo inválido, ignorar
+                        continue
             
             if arquivos_removidos > 0:
-                print(f"✅ {arquivos_removidos} arquivos de cache de datas anteriores removidos")
+                print(f"✅ {arquivos_removidos} arquivos de cache com mais de 7 dias removidos")
             else:
                 print("✅ Nenhum cache antigo para remover")
                 
@@ -282,6 +277,7 @@ class BetBoosterV2:
             # Etapa 4: Buscar jogos de hoje (com cache)
             self.atualizar_loading(30, "Verificando jogos de hoje...")
             data_hoje = datetime.now().strftime('%Y-%m-%d')
+            data_formatada = datetime.now().strftime('%d/%m/%Y')
             
             # Tentar carregar do cache primeiro
             cache_hoje = self.carregar_jogos_cache(data_hoje)
@@ -290,11 +286,11 @@ class BetBoosterV2:
                 jogos_hoje = cache_hoje['jogos']
                 apostas_hot_hoje = cache_hoje['apostas_hot']
                 
-                # VERIFICAR E CORRIGIR PERÍODOS DAS APOSTAS HOT DE HOJE
+                # Adicionar data_jogo a cada aposta para filtro correto
                 for aposta in apostas_hot_hoje:
-                    if aposta.get('periodo') == 'Amanhã':
-                        aposta['periodo'] = 'Hoje'
-                        print(f"🔄 Período corrigido: {aposta.get('jogo', 'N/A')} - Amanhã -> Hoje")
+                    aposta['data_jogo'] = data_hoje
+                    # Definir período para a data formatada para exibição no card
+                    aposta['periodo'] = data_formatada
             else:
                 jogos_hoje = self.api.buscar_jogos_do_dia(data_hoje)
                 print(f"🌐 {len(jogos_hoje) if jogos_hoje else 0} jogos encontrados hoje")
@@ -302,25 +298,8 @@ class BetBoosterV2:
             
             time.sleep(0.3)
             
-            # Etapa 5: Buscar jogos de amanhã (com cache)
-            self.atualizar_loading(40, "Verificando jogos de amanhã...")
-            data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-            
-            # Tentar carregar do cache primeiro
-            cache_amanha = self.carregar_jogos_cache(data_amanha)
-            if cache_amanha:
-                print(f"📁 Usando cache para amanhã: {len(cache_amanha['jogos'])} jogos")
-                jogos_amanha = cache_amanha['jogos']
-                apostas_hot_amanha = cache_amanha['apostas_hot']
-            else:
-                jogos_amanha = self.api.buscar_jogos_do_dia(data_amanha)
-                print(f"🌐 {len(jogos_amanha) if jogos_amanha else 0} jogos encontrados amanhã")
-                apostas_hot_amanha = []
-            
-            time.sleep(0.3)
-            
-            # Etapa 5: Preparar os primeiros 100 jogos para análise
-            self.atualizar_loading(100, "Preparando primeiros 100 jogos para análise...")
+            # Etapa 5: Preparar jogos para análise
+            self.atualizar_loading(100, "Preparando jogos para análise...")
             
             # Se não há cache, processar os primeiros 100 jogos
             if not cache_hoje and jogos_hoje:
@@ -328,16 +307,9 @@ class BetBoosterV2:
                 print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise (limitado a 100)")
             else:
                 jogos_validos_hoje = []
-                
-            if not cache_amanha and jogos_amanha:
-                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:100])
-                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise (limitado a 100)")
-            else:
-                jogos_validos_amanha = []
             
-            total_para_analisar = len(jogos_validos_hoje) + len(jogos_validos_amanha)
-            if total_para_analisar > 0:
-                print(f"🔥 {total_para_analisar} jogos SELECIONADOS para análise completa (máximo 100)")
+            if jogos_validos_hoje:
+                print(f"� {len(jogos_validos_hoje)} jogos SELECIONADOS para análise completa (máximo 100)")
             time.sleep(0.5)
             
             # Etapa 6: CARREGAR E ANALISAR APOSTAS HOT COMPLETAMENTE
@@ -346,8 +318,12 @@ class BetBoosterV2:
             # Se não há cache, analisar do zero
             if not cache_hoje and jogos_validos_hoje:
                 self.atualizar_loading(60, "Analisando apostas hot de hoje...")
-                apostas_hot_hoje, jogos_hoje_com_odds = self.analisar_jogos_completo(jogos_validos_hoje, 'Hoje')
+                apostas_hot_hoje, jogos_hoje_com_odds = self.analisar_jogos_completo(jogos_validos_hoje, data_formatada)
                 apostas_todas.extend(apostas_hot_hoje)
+                
+                # Adicionar data_jogo a cada aposta para filtro correto
+                for aposta in apostas_hot_hoje:
+                    aposta['data_jogo'] = data_hoje
                 
                 # Salvar no cache com jogos enriquecidos com odds
                 dados_cache_hoje = {
@@ -358,26 +334,9 @@ class BetBoosterV2:
             else:
                 apostas_todas.extend(apostas_hot_hoje)
             
-            if not cache_amanha and jogos_validos_amanha:
-                self.atualizar_loading(80, "Analisando apostas hot de amanhã...")
-                apostas_hot_amanha, jogos_amanha_com_odds = self.analisar_jogos_completo(jogos_validos_amanha, 'Amanhã')
-                apostas_todas.extend(apostas_hot_amanha)
-                
-                # Salvar no cache com jogos enriquecidos com odds
-                dados_cache_amanha = {
-                    'jogos': jogos_amanha_com_odds,
-                    'apostas_hot': apostas_hot_amanha
-                }
-                self.salvar_jogos_cache(data_amanha, dados_cache_amanha)
-            else:
-                apostas_todas.extend(apostas_hot_amanha)
-            
             # Combinar e ordenar apostas por prob. bet booster
             self.apostas_hot_carregadas = apostas_todas
-            self.apostas_hot_carregadas.sort(key=lambda x: (
-                0 if x.get('periodo') == 'Hoje' else 1,
-                -x.get('nossa_prob', 0)  # Ordenar por prob. bet booster (maior para menor)
-            ))
+            self.apostas_hot_carregadas.sort(key=lambda x: -x.get('nossa_prob', 0))
             
             print(f"✅ {len(self.apostas_hot_carregadas)} apostas hot analisadas e prontas")
             
@@ -427,8 +386,8 @@ class BetBoosterV2:
         """MANTIDA PARA COMPATIBILIDADE - Mas agora aceita TODOS os jogos"""
         return self.processar_todos_jogos(jogos)
     
-    def analisar_jogos_completo(self, jogos, periodo):
-        """Analisa completamente os primeiros jogos de uma lista (limitado a 100) - VERSÃO PARALELA"""
+    def analisar_jogos_completo_com_progresso(self, jogos, periodo, progress_callback=None):
+        """Analisa completamente os primeiros jogos de uma lista - VERSÃO PARALELA COM PROGRESSO"""
         apostas_analisadas = []
         jogos_com_odds = []  # Lista para jogos enriquecidos com odds
 
@@ -448,9 +407,12 @@ class BetBoosterV2:
             for i, future in enumerate(as_completed(futures)):
                 try:
                     # Atualizar status de progresso
-                    progresso_base = 60 if periodo == 'Hoje' else 80
-                    progresso_atual = progresso_base + (i / len(jogos)) * 15  # 15% para cada período
-                    self.atualizar_loading(progresso_atual, f"[{i+1}/{len(jogos)}] Processando jogos...")
+                    progresso_atual = (i + 1) / len(jogos) * 100
+                    status_texto = f"Processando jogo {i+1}/{len(jogos)} ({progresso_atual:.0f}%)"
+                    
+                    # Chamar o callback de progresso se fornecido
+                    if progress_callback:
+                        progress_callback(progresso_atual, status_texto)
                     
                     # Obter resultado
                     jogo_completo, recomendacoes = future.result(timeout=5)  # Timeout de 5 segundos por jogo
@@ -474,89 +436,11 @@ class BetBoosterV2:
         print(f"🎯 CONCLUÍDO PARALELO: {len(jogos_com_odds)} jogos processados, {len(apostas_analisadas)} apostas hot geradas ({periodo})")
         return apostas_analisadas, jogos_com_odds
 
-    def analisar_jogos_completo_original(self, jogos, periodo):
-        """Versão original - mantida como backup"""
-        apostas_analisadas = []
-        jogos_com_odds = []
-
-        print(f"🔥 Iniciando análise completa de {len(jogos)} jogos ({periodo}) - limitado a 100 primeiros")
-
-        for i, jogo in enumerate(jogos):
-            try:
-                # Atualizar status de progresso
-                progresso_base = 60 if periodo == 'Hoje' else 80
-                progresso_atual = progresso_base + (i / len(jogos)) * 15  # 15% para cada período
-                
-                # Garantir que temos um ID válido
-                jogo_id = jogo.get('id') if isinstance(jogo, dict) else str(jogo)
-                
-                # Usar nomes dos times conforme estão no jogo original, ou N/A se não tiver
-                time_casa = jogo.get('home_team', jogo.get('time_casa', 'N/A')) if isinstance(jogo, dict) else 'N/A'
-                time_visitante = jogo.get('away_team', jogo.get('time_visitante', 'N/A')) if isinstance(jogo, dict) else 'N/A'
-                
-                self.atualizar_loading(progresso_atual, f"[{i+1}/{len(jogos)}] {time_casa} vs {time_visitante}")
-                
-                # Tentar buscar odds detalhadas para este jogo
-                odds_detalhadas = None
-                if jogo_id and jogo_id != 'N/A':
-                    try:
-                        odds_detalhadas = self.buscar_odds_detalhadas(jogo_id)
-                    except Exception as e:
-                        print(f"⚠️ Erro ao buscar odds para {jogo_id}: {e}")
-                
-                # Criar jogo completo sempre (com ou sem odds)
-                if odds_detalhadas:
-                    # Jogo COM odds
-                    jogo_completo = {**jogo, **odds_detalhadas} if isinstance(jogo, dict) else {**odds_detalhadas, 'id': jogo_id}
-                    jogo_completo['periodo'] = periodo
-                    print(f"✅ Jogo {time_casa} vs {time_visitante} - COM odds")
-                else:
-                    # Jogo SEM odds - criar estrutura básica
-                    jogo_completo = jogo.copy() if isinstance(jogo, dict) else {'id': jogo_id}
-                    jogo_completo.update({
-                        'periodo': periodo,
-                        'odds': None,
-                        'home_team': time_casa,
-                        'away_team': time_visitante,
-                        'start_time': jogo_completo.get('start_time', ''),
-                        'league': jogo_completo.get('league', 'N/A')
-                    })
-                    print(f"⚠️ Jogo {time_casa} vs {time_visitante} - SEM odds (dados básicos)")
-                
-                # Adicionar à lista de jogos processados
-                jogos_com_odds.append(jogo_completo)
-                
-                # Tentar processar para apostas hot (só se tiver dados válidos)
-                if isinstance(jogo, dict):
-                    jogo['periodo'] = periodo
-                    try:
-                        recomendacoes = self.processar_jogo_para_hot(jogo)
-                        apostas_analisadas.extend(recomendacoes)
-                        print(f"📊 {len(recomendacoes)} apostas hot geradas")
-                    except Exception as e:
-                        print(f"⚠️ Erro ao processar apostas hot: {e}")
-                
-            except Exception as e:
-                print(f"❌ ERRO ao processar jogo {i+1}: {e}")
-                
-                # SEMPRE adicionar jogo mesmo com erro total
-                try:
-                    jogo_erro = {
-                        'id': jogo.get('id') if isinstance(jogo, dict) else str(jogo),
-                        'home_team': 'Erro',
-                        'away_team': 'Erro',
-                        'periodo': periodo,
-                        'odds': None,
-                        'start_time': '',
-                        'league': 'Erro'
-                    }
-                    jogos_com_odds.append(jogo_erro)
-                    print(f"💾 Jogo com erro salvo como estrutura básica")
-                except Exception as e2:
-                    print(f"❌ Erro crítico ao salvar jogo com erro: {e2}")
-        
-        print(f"🎯 CONCLUÍDO: {len(jogos_com_odds)} jogos processados, {len(apostas_analisadas)} apostas hot geradas ({periodo})")
-        return apostas_analisadas, jogos_com_odds
+    def analisar_jogos_completo(self, jogos, periodo):
+        """Analisa completamente os primeiros jogos de uma lista - redireciona para a versão com progresso"""
+        # Esta função é mantida para compatibilidade com código existente
+        # Apenas redireciona para a versão com progresso
+        return self.analisar_jogos_completo_com_progresso(jogos, periodo)
     
     def atualizar_loading(self, progresso, status):
         """Atualiza barra de progresso e status"""
@@ -589,11 +473,10 @@ class BetBoosterV2:
                 
                 # Atualizar status
                 total_apostas = len(self.apostas_hot_carregadas)
-                apostas_hoje = len([a for a in self.apostas_hot_carregadas if a.get('periodo') == 'Hoje'])
-                apostas_amanha = len([a for a in self.apostas_hot_carregadas if a.get('periodo') == 'Amanhã'])
+                data_formatada = datetime.now().strftime('%d/%m/%Y')
                 
                 self.status_hot.config(
-                    text=f"✅ {total_apostas} apostas hot carregadas ({apostas_hoje} hoje, {apostas_amanha} amanhã)", 
+                    text=f"✅ {total_apostas} apostas hot carregadas ({data_formatada})", 
                     style='Success.TLabel'
                 )
                 
@@ -662,21 +545,30 @@ class BetBoosterV2:
         filtros_frame = ttk.Frame(controles_frame)
         filtros_frame.pack(fill='x', pady=5)
         
-        # Filtro de Data
+        # Filtro de Data - Substituir ComboBox por DateEntry
         ttk.Label(filtros_frame, text="📅 Data:").pack(side='left', padx=(0, 5))
-        self.filtro_data = ttk.Combobox(filtros_frame, values=["Todos", "Hoje", "Amanhã"], 
-                                       state="readonly", width=10)
-        self.filtro_data.pack(side='left', padx=(0, 15))
-        self.filtro_data.set("Todos")
-        self.filtro_data.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
         
-        # Filtro de Risco
-        ttk.Label(filtros_frame, text="🎯 Risco:").pack(side='left', padx=(0, 5))
-        self.filtro_risco = ttk.Combobox(filtros_frame, values=["Todos", "Fortes", "Moderadas", "Arriscadas", "Muito Arriscadas"], 
+        # Inicializar com a data atual
+        data_atual = datetime.now()
+        self.filtro_data_entry = DateEntry(filtros_frame, width=12, background='darkblue',
+                                        foreground='white', borderwidth=2, year=data_atual.year,
+                                        month=data_atual.month, day=data_atual.day,
+                                        date_pattern='dd/mm/yyyy')
+        self.filtro_data_entry.pack(side='left', padx=(0, 15))
+        # Armazenar a data selecionada em formato API
+        self.data_selecionada = data_atual.strftime('%Y-%m-%d')
+        # Armazenar a data formatada
+        self.filtro_data_personalizada = data_atual.strftime('%d/%m/%Y')
+        # Vincular evento de mudança de data
+        self.filtro_data_entry.bind("<<DateEntrySelected>>", self.selecionar_data_apostas_hot)
+        
+        # Filtro de Recomendação
+        ttk.Label(filtros_frame, text="🎯 Recomendações:").pack(side='left', padx=(0, 5))
+        self.filtro_recomendacao = ttk.Combobox(filtros_frame, values=["Todos", "Fortes", "Moderadas", "Arriscadas", "Muito Arriscadas"], 
                                         state="readonly", width=15)
-        self.filtro_risco.pack(side='left', padx=(0, 15))
-        self.filtro_risco.set("Todos")
-        self.filtro_risco.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
+        self.filtro_recomendacao.pack(side='left', padx=(0, 15))
+        self.filtro_recomendacao.set("Todos")
+        self.filtro_recomendacao.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
         
         # Filtro de Tipo de Aposta
         ttk.Label(filtros_frame, text="⚽ Tipo:").pack(side='left', padx=(0, 5))
@@ -694,8 +586,9 @@ class BetBoosterV2:
         buttons_frame = ttk.Frame(controles_frame)
         buttons_frame.pack(fill='x', pady=5)
         
-        ttk.Button(buttons_frame, text="📊 Configurar Filtros", 
-                  command=self.configurar_filtros_hot).pack(side='left', padx=5)
+        # Botão para atualizar apostas (limpar cache do dia)
+        ttk.Button(buttons_frame, text="🔄 Atualizar apostas", 
+                  command=self.atualizar_apostas_hot).pack(side='left', padx=5)
         
         # Status
         self.status_hot = ttk.Label(controles_frame, text="Pronto para análise", style='Success.TLabel')
@@ -703,54 +596,273 @@ class BetBoosterV2:
         
         # Frame principal com scrollbar
         main_frame = ttk.Frame(self.tab_apostas_hot)
-        main_frame.pack(fill='both', expand=True, padx=20)
+        main_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        # Canvas para scroll
+        # Canvas para scroll - configuração melhorada
         canvas = tk.Canvas(main_frame)
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         self.apostas_hot_frame = ttk.Frame(canvas)
         
+        # Configurar o frame para ajustar a região de rolagem quando o tamanho mudar
         self.apostas_hot_frame.bind("<Configure>", 
                                   lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         
+        # Criar janela no canvas para o frame de apostas
         canvas.create_window((0, 0), window=self.apostas_hot_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
+        # Melhorar a rolagem com eventos de mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Configurar o canvas para expandir corretamente
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        
+        # Garantir que o canvas tenha largura adequada
+        self.tab_apostas_hot.update_idletasks()
+        canvas.config(width=main_frame.winfo_width() - scrollbar.winfo_width())
     
+    def selecionar_data_apostas_hot(self, event=None):
+        """Gerencia a seleção de data para as apostas hot usando o DateEntry"""
+        # Obter a data selecionada do DateEntry
+        data_selecionada = self.filtro_data_entry.get_date()
+        data_api = data_selecionada.strftime('%Y-%m-%d')
+        data_formatada = data_selecionada.strftime('%d/%m/%Y')
+        
+        # Verificar se a data selecionada é hoje
+        data_hoje = datetime.now().strftime('%Y-%m-%d')
+        
+        # Armazenar as datas para uso posterior
+        self.data_selecionada = data_api
+        self.filtro_data_personalizada = data_formatada
+        
+        # Verificar se existe cache para esta data
+        cache_path = self.get_cache_file_path(data_api)
+        
+        if os.path.exists(cache_path):
+            # Se existe cache, carregar diretamente
+            threading.Thread(
+                target=self.carregar_apostas_data_especifica_thread,
+                args=(data_api, data_formatada),
+                daemon=True
+            ).start()
+        else:
+            # Se não existe cache, perguntar se quer buscar da API
+            resposta = messagebox.askyesno("Cache não encontrado", 
+                                         "Não existe cache para esta data. Deseja buscar os dados da API?")
+            if resposta:
+                # Analisar jogos para a data selecionada
+                self.analisar_jogos_data_especifica(data_api, data_formatada)
+            else:
+                # Se não quiser buscar, voltar para a data atual
+                hoje = datetime.now()
+                self.filtro_data_entry.set_date(hoje)
+                # Tentar carregar do cache da data atual
+                self.carregar_apostas_data_atual()
+            # Aplicar filtros normais
+            self.aplicar_filtros_hot()
+    
+    def analisar_jogos_data_especifica(self, data_api, data_formatada):
+        """Analisa jogos de uma data específica e exibe apostas hot"""
+        try:
+            self.status_hot.config(text=f"🔄 Analisando jogos da data {data_formatada}...", style='Warning.TLabel')
+            self.root.update()
+            
+            # Tentar carregar do cache
+            cache_path = self.get_cache_file_path(data_api)
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                        
+                    # Verificar se contém apostas_hot
+                    if 'apostas_hot' in cache_data and cache_data['apostas_hot']:
+                        # Adicionar data_jogo a cada aposta para filtro correto
+                        for aposta in cache_data['apostas_hot']:
+                            aposta['data_jogo'] = data_api
+                        
+                        self.exibir_apostas_hot(cache_data['apostas_hot'])
+                        self.status_hot.config(text=f"✅ {len(cache_data['apostas_hot'])} apostas carregadas do cache ({data_formatada})", 
+                                             style='Success.TLabel')
+                        return True
+                    else:
+                        print(f"Cache existe mas não contém apostas_hot para {data_formatada}")
+                except Exception as e:
+                    print(f"Erro ao carregar cache de apostas hot: {e}")
+            else:
+                print(f"Cache não encontrado para {data_formatada}")
+            
+            # Se não tem cache válido, criar uma thread para buscar da API e processar
+            self.status_hot.config(text=f"🔄 Buscando jogos da API para {data_formatada}...", 
+                                 style='Warning.TLabel')
+            
+            # Iniciar em thread separada para não travar a interface
+            threading.Thread(
+                target=self.analisar_jogos_data_especifica_thread,
+                args=(data_api, data_formatada),
+                daemon=True
+            ).start()
+            
+            return True
+            
+        except Exception as e:
+            self.status_hot.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
+            print(f"Erro ao analisar jogos da data {data_formatada}: {e}")
+            return False
+            
+    def analisar_jogos_data_especifica_thread(self, data_api, data_formatada):
+        """Versão em thread da análise de jogos para data específica"""
+        try:
+            # Buscar jogos da API
+            jogos = self.api.buscar_jogos_do_dia(data_api)
+            
+            if not jogos:
+                def atualizar_status_sem_jogos():
+                    self.status_hot.config(text=f"❌ Nenhum jogo encontrado para {data_formatada}", 
+                                         style='Warning.TLabel')
+                self.root.after(0, atualizar_status_sem_jogos)
+                return
+            
+            # Atualizar status na thread principal
+            def atualizar_status_processando():
+                self.status_hot.config(text=f"📊 Processando {len(jogos)} jogos para {data_formatada}...", 
+                                     style='Warning.TLabel')
+            self.root.after(0, atualizar_status_processando)
+            
+            # Usar a mesma abordagem de analisar_jogos_completo
+            jogos_validos = self.processar_todos_jogos(jogos[:100])  # Limitar a 100 jogos
+            
+            # Criar e exibir barra de progresso
+            def criar_barra_progresso():
+                # Frame para barra de progresso
+                self.progresso_frame = ttk.Frame(self.tab_apostas_hot)
+                self.progresso_frame.pack(fill='x', padx=20, pady=5)
+                
+                self.progresso_var = tk.DoubleVar()
+                self.progresso_barra = ttk.Progressbar(
+                    self.progresso_frame, 
+                    variable=self.progresso_var,
+                    maximum=100,
+                    length=400
+                )
+                self.progresso_barra.pack(fill='x')
+                
+                self.progresso_texto = ttk.Label(self.progresso_frame, text="0%")
+                self.progresso_texto.pack()
+            
+            self.root.after(0, criar_barra_progresso)
+            
+            # Função para atualizar o progresso
+            def atualizar_progresso(valor, texto):
+                def _atualizar():
+                    self.progresso_var.set(valor)
+                    self.progresso_texto.config(text=texto)
+                self.root.after(0, _atualizar)
+            
+            apostas_recomendadas, jogos_com_odds = self.analisar_jogos_completo_com_progresso(
+                jogos_validos, data_formatada, atualizar_progresso
+            )
+            
+            # Verificar se retornou apostas
+            if not apostas_recomendadas:
+                def mostrar_sem_apostas():
+                    # Remover barra de progresso
+                    if hasattr(self, 'progresso_frame'):
+                        self.progresso_frame.destroy()
+                    
+                    self.status_hot.config(text=f"❌ Nenhuma aposta recomendada para {data_formatada}", 
+                                         style='Warning.TLabel')
+                self.root.after(0, mostrar_sem_apostas)
+                return
+            
+            # Adicionar data_jogo a cada aposta para filtro correto
+            for aposta in apostas_recomendadas:
+                aposta['data_jogo'] = data_api
+                # Definir período para a data formatada para exibição no card
+                aposta['periodo'] = data_formatada
+            
+            # Exibir apostas na thread principal
+            def exibir_apostas():
+                # Remover barra de progresso
+                if hasattr(self, 'progresso_frame'):
+                    self.progresso_frame.destroy()
+                
+                self.exibir_apostas_hot(apostas_recomendadas)
+                self.status_hot.config(text=f"✅ {len(apostas_recomendadas)} apostas analisadas para {data_formatada}", 
+                                     style='Success.TLabel')
+            
+            self.root.after(0, exibir_apostas)
+            
+            # Salvar apostas no cache
+            try:
+                cache_path = self.get_cache_file_path(data_api)
+                cache_data = {}
+                
+                if os.path.exists(cache_path):
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                
+                cache_data['apostas_hot'] = apostas_recomendadas
+                
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json.dump(cache_data, f, ensure_ascii=False, indent=4)
+                
+                print(f"✅ {len(apostas_recomendadas)} apostas salvas no cache para {data_formatada}")
+                
+            except Exception as e:
+                print(f"Erro ao salvar cache de apostas hot: {e}")
+                
+        except Exception as e:
+            def mostrar_erro():
+                # Remover barra de progresso
+                if hasattr(self, 'progresso_frame'):
+                    self.progresso_frame.destroy()
+                    
+                self.status_hot.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao analisar jogos da data {data_formatada}: {e}")
+            
     def aplicar_filtros_hot(self, event=None):
         """Aplica filtros nas apostas hot"""
         try:
             if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
                 return
             
-            filtro_data = self.filtro_data.get()
-            filtro_risco = self.filtro_risco.get()
+            # Obter a data selecionada do DateEntry
+            data_selecionada_obj = self.filtro_data_entry.get_date()
+            data_selecionada_api = data_selecionada_obj.strftime('%Y-%m-%d')
+            data_selecionada_formatada = data_selecionada_obj.strftime('%d/%m/%Y')
+            
+            # Atualizar as variáveis de data
+            self.data_selecionada = data_selecionada_api
+            self.filtro_data_personalizada = data_selecionada_formatada
+            
+            filtro_recomendacao = self.filtro_recomendacao.get()
             filtro_tipo = self.filtro_tipo.get()
             
             # Filtrar apostas
             apostas_filtradas = []
             
             for aposta in self.apostas_hot:
-                # Filtro de data
-                incluir_data = True
-                if filtro_data == "Hoje":
-                    incluir_data = aposta.get('periodo') == 'Hoje'
-                elif filtro_data == "Amanhã":
-                    incluir_data = aposta.get('periodo') == 'Amanhã'
+                # Filtro de data - verificar se a data da aposta coincide com a data selecionada
+                incluir_data = False
+                data_aposta = aposta.get('data_jogo', aposta.get('periodo', ''))
+                if data_aposta == data_selecionada_api:
+                    incluir_data = True
                 
-                # Filtro de risco - usar o campo 'tipo' da aposta
-                incluir_risco = True
-                if filtro_risco == "Fortes":
-                    incluir_risco = aposta.get('tipo') == 'FORTE'
-                elif filtro_risco == "Moderadas":
-                    incluir_risco = aposta.get('tipo') == 'MODERADA'
-                elif filtro_risco == "Arriscadas":
-                    incluir_risco = aposta.get('tipo') == 'ARRISCADA'
-                elif filtro_risco == "Muito Arriscadas":
-                    incluir_risco = aposta.get('tipo') == 'MUITO_ARRISCADA'
-                
+                # Filtro de Recomendação - usar o campo 'tipo' da aposta
+                incluir_recomendacao = True
+                if filtro_recomendacao == "Fortes":
+                    incluir_recomendacao = aposta.get('tipo') == 'FORTE'
+                elif filtro_recomendacao == "Moderadas":
+                    incluir_recomendacao = aposta.get('tipo') == 'MODERADA'
+                elif filtro_recomendacao == "Arriscadas":
+                    incluir_recomendacao = aposta.get('tipo') == 'ARRISCADA'
+                elif filtro_recomendacao == "Muito Arriscadas":
+                    incluir_recomendacao = aposta.get('tipo') == 'MUITO_ARRISCADA'
+
                 # Filtro de tipo de aposta - verificar se é resultado ou outros
                 incluir_tipo = True
                 if filtro_tipo == "Resultado":
@@ -761,8 +873,8 @@ class BetBoosterV2:
                     # Apostas over/under e outras
                     tipo_aposta = aposta.get('aposta', '').lower()
                     incluir_tipo = any(palavra in tipo_aposta for palavra in ['over', 'under', 'btts', 'gols']) and not any(palavra in tipo_aposta for palavra in ['vitória', 'empate'])
-                
-                if incluir_data and incluir_risco and incluir_tipo:
+
+                if incluir_data and incluir_recomendacao and incluir_tipo:
                     apostas_filtradas.append(aposta)
             
             # Atualizar interface com apostas filtradas
@@ -772,11 +884,9 @@ class BetBoosterV2:
             total_filtradas = len(apostas_filtradas)
             total_original = len(self.apostas_hot)
             
-            status_text = f"✅ {total_filtradas} de {total_original} apostas"
-            if filtro_data != "Todos":
-                status_text += f" ({filtro_data})"
-            if filtro_risco != "Todos":
-                status_text += f" ({filtro_risco})"
+            status_text = f"✅ {total_filtradas} de {total_original} apostas ({self.filtro_data_personalizada})"
+            if filtro_recomendacao != "Todos":
+                status_text += f" ({filtro_recomendacao})"
             if filtro_tipo != "Todos":
                 status_text += f" ({filtro_tipo})"
             
@@ -784,13 +894,86 @@ class BetBoosterV2:
             
         except Exception as e:
             self.status_hot.config(text=f"❌ Erro ao aplicar filtros: {str(e)}", style='Warning.TLabel')
+            print(f"Erro ao aplicar filtros: {e}")
     
+    def carregar_apostas_data_atual(self):
+        """Carrega as apostas da data atual do cache"""
+        data_hoje = datetime.now().strftime('%Y-%m-%d')
+        data_formatada = datetime.now().strftime('%d/%m/%Y')
+        threading.Thread(
+            target=self.carregar_apostas_data_especifica_thread,
+            args=(data_hoje, data_formatada),
+            daemon=True
+        ).start()
+    
+    def carregar_apostas_data_especifica_thread(self, data_api, data_formatada):
+        """Thread para carregar apostas de uma data específica do cache sem travar a interface"""
+        try:
+            def atualizar_status(texto):
+                self.status_hot.config(text=texto, style='Warning.TLabel')
+                
+            self.root.after(0, lambda: atualizar_status(f"🔄 Verificando cache de apostas para {data_formatada}..."))
+            
+            # Verificar e carregar do cache
+            cache_path = self.get_cache_file_path(data_api)
+            
+            apostas_filtradas = []
+            cache_encontrado = False
+            
+            # Verificar cache da data específica
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Verificar se contém apostas_hot
+                    if 'apostas_hot' in cache_data and cache_data['apostas_hot']:
+                        # Adicionar data_jogo a cada aposta para filtro correto
+                        for aposta in cache_data['apostas_hot']:
+                            aposta['data_jogo'] = data_api
+                            # Definir período para a data formatada para exibição no card
+                            aposta['periodo'] = data_formatada
+                        
+                        apostas_filtradas.extend(cache_data['apostas_hot'])
+                        cache_encontrado = True
+                        print(f"✅ Carregadas {len(cache_data['apostas_hot'])} apostas do cache para {data_formatada}")
+                except Exception as e:
+                    print(f"Erro ao carregar cache para {data_formatada}: {e}")
+            
+            # Exibir apostas se encontradas no cache
+            if cache_encontrado and apostas_filtradas:
+                def exibir_apostas_cache():
+                    self.exibir_apostas_hot(apostas_filtradas)
+                    self.status_hot.config(text=f"✅ {len(apostas_filtradas)} apostas carregadas do cache ({data_formatada})", 
+                                         style='Success.TLabel')
+                self.root.after(0, exibir_apostas_cache)
+            else:
+                # Se não encontrou no cache, informar ao usuário
+                self.root.after(0, lambda: atualizar_status(f"❌ Nenhuma aposta encontrada para {data_formatada}"))
+                
+        except Exception as e:
+            def mostrar_erro():
+                self.status_hot.config(text=f"❌ Erro ao carregar apostas: {str(e)}", 
+                                     style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao carregar apostas para {data_formatada} em thread: {e}")
+        
     def limpar_filtros_hot(self):
-        """Limpa todos os filtros das apostas hot"""
-        self.filtro_data.set("Todos")
-        self.filtro_risco.set("Todos")
+        """Limpa todos os filtros das apostas hot e carrega as apostas de hoje"""
+        # Resetar filtros de recomendação e tipo
+        self.filtro_recomendacao.set("Todos")
         self.filtro_tipo.set("Todos")
-        self.aplicar_filtros_hot()
+        
+        # Resetar o calendário para a data atual
+        data_atual = datetime.now()
+        self.filtro_data_entry.set_date(data_atual)
+        
+        # Atualizar as variáveis de data
+        self.data_selecionada = data_atual.strftime('%Y-%m-%d')
+        self.filtro_data_personalizada = data_atual.strftime('%d/%m/%Y')
+        
+        # Carregar apostas do cache para hoje
+        self.carregar_apostas_data_atual()
     
     def filtrar_jogos(self, event=None):
         """Filtra jogos na lista baseado no texto da pesquisa"""
@@ -833,6 +1016,404 @@ class BetBoosterV2:
         self.entry_pesquisa_jogos.delete(0, tk.END)
         self.filtrar_jogos()
     
+    def atualizar_apostas_hot(self):
+        """Limpa o cache do dia atual ou selecionado e gera novas apostas hot"""
+        try:
+            # Determinar qual é a data atual selecionada
+            filtro_atual = self.filtro_data.get()
+            
+            if filtro_atual == "Hoje/Amanhã":
+                # Atualizar ambos os caches (hoje e amanhã)
+                self.status_hot.config(text="🔄 Atualizando apostas para hoje e amanhã...", 
+                                     style='Warning.TLabel')
+                self.root.update()
+                
+                # Limpar cache de hoje e amanhã
+                data_hoje = datetime.now().strftime('%Y-%m-%d')
+                data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                
+                # Iniciar uma thread para limpar o cache e recarregar as apostas
+                threading.Thread(
+                    target=self.atualizar_apostas_hoje_amanha_thread,
+                    args=(data_hoje, data_amanha),
+                    daemon=True
+                ).start()
+                
+            elif filtro_atual.startswith("Data:"):
+                # Data personalizada selecionada anteriormente
+                if not hasattr(self, 'data_selecionada') or not hasattr(self, 'filtro_data_personalizada'):
+                    messagebox.showinfo("Info", "Selecione uma data válida para atualizar as apostas.")
+                    return
+                    
+                data_api = self.data_selecionada
+                data_formatada = self.filtro_data_personalizada
+                
+                # Iniciar uma thread para limpar o cache e recarregar as apostas
+                threading.Thread(
+                    target=self.atualizar_apostas_data_especifica_thread,
+                    args=(data_api, data_formatada),
+                    daemon=True
+                ).start()
+                
+            else:
+                messagebox.showinfo("Info", "Selecione uma data válida para atualizar as apostas.")
+                return
+                
+        except Exception as e:
+            self.status_hot.config(text=f"❌ Erro ao atualizar apostas: {str(e)}", 
+                                 style='Warning.TLabel')
+            print(f"Erro ao atualizar apostas hot: {e}")
+            
+    def atualizar_apostas_hoje_amanha_thread(self, data_hoje, data_amanha):
+        """Thread para atualizar apostas de hoje e amanhã sem travar a interface"""
+        try:
+            # Remover cache de hoje
+            cache_hoje = self.get_cache_file_path(data_hoje)
+            if os.path.exists(cache_hoje):
+                try:
+                    with open(cache_hoje, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Remover apostas_hot se existir
+                    if 'apostas_hot' in cache_data:
+                        del cache_data['apostas_hot']
+                        
+                        # Salvar cache atualizado
+                        with open(cache_hoje, 'w', encoding='utf-8') as f:
+                            json.dump(cache_data, f, ensure_ascii=False, indent=4)
+                        
+                        print("✅ Cache de apostas hot de hoje removido")
+                except Exception as e:
+                    print(f"Erro ao atualizar cache de hoje: {e}")
+            
+            # Remover cache de amanhã
+            cache_amanha = self.get_cache_file_path(data_amanha)
+            if os.path.exists(cache_amanha):
+                try:
+                    with open(cache_amanha, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Remover apostas_hot se existir
+                    if 'apostas_hot' in cache_data:
+                        del cache_data['apostas_hot']
+                        
+                        # Salvar cache atualizado
+                        with open(cache_amanha, 'w', encoding='utf-8') as f:
+                            json.dump(cache_data, f, ensure_ascii=False, indent=4)
+                        
+                        print("✅ Cache de apostas hot de amanhã removido")
+                except Exception as e:
+                    print(f"Erro ao atualizar cache de amanhã: {e}")
+            
+            # Recarregar todas as apostas
+            self.analisar_apostas_thread()
+            
+        except Exception as e:
+            def mostrar_erro():
+                self.status_hot.config(text=f"❌ Erro ao atualizar apostas: {str(e)}", 
+                                     style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao atualizar apostas hot em thread: {e}")
+            
+    def carregar_apostas_hoje_amanha_thread(self):
+        """Thread para carregar apostas de hoje e amanhã do cache sem travar a interface"""
+        try:
+            data_hoje = datetime.now().strftime('%Y-%m-%d')
+            data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            data_formatada_hoje = datetime.now().strftime('%d/%m/%Y')
+            data_formatada_amanha = (datetime.now() + timedelta(days=1)).strftime('%d/%m/%Y')
+            
+            def atualizar_status(texto):
+                self.status_hot.config(text=texto, style='Warning.TLabel')
+                
+            self.root.after(0, lambda: atualizar_status("🔄 Verificando cache de apostas para hoje e amanhã..."))
+            
+            # Verificar e carregar do cache
+            cache_hoje = self.get_cache_file_path(data_hoje)
+            cache_amanha = self.get_cache_file_path(data_amanha)
+            
+            apostas_todas = []
+            cache_encontrado = False
+            
+            # Verificar cache de hoje
+            if os.path.exists(cache_hoje):
+                try:
+                    with open(cache_hoje, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Verificar se contém apostas_hot
+                    if 'apostas_hot' in cache_data and cache_data['apostas_hot']:
+                        # Adicionar data_jogo a cada aposta para filtro correto
+                        for aposta in cache_data['apostas_hot']:
+                            aposta['data_jogo'] = data_hoje
+                            # Garantir que o período seja 'Hoje'
+                            aposta['periodo'] = 'Hoje'
+                        
+                        apostas_todas.extend(cache_data['apostas_hot'])
+                        cache_encontrado = True
+                        print(f"✅ Carregadas {len(cache_data['apostas_hot'])} apostas do cache de hoje")
+                except Exception as e:
+                    print(f"Erro ao carregar cache de hoje: {e}")
+            
+            # Verificar cache de amanhã
+            if os.path.exists(cache_amanha):
+                try:
+                    with open(cache_amanha, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Verificar se contém apostas_hot
+                    if 'apostas_hot' in cache_data and cache_data['apostas_hot']:
+                        # Adicionar data_jogo a cada aposta para filtro correto
+                        for aposta in cache_data['apostas_hot']:
+                            aposta['data_jogo'] = data_amanha
+                            # Garantir que o período seja 'Amanhã'
+                            aposta['periodo'] = 'Amanhã'
+                        
+                        apostas_todas.extend(cache_data['apostas_hot'])
+                        cache_encontrado = True
+                        print(f"✅ Carregadas {len(cache_data['apostas_hot'])} apostas do cache de amanhã")
+                except Exception as e:
+                    print(f"Erro ao carregar cache de amanhã: {e}")
+            
+            # Exibir apostas se encontradas no cache
+            if cache_encontrado and apostas_todas:
+                def exibir_apostas_cache():
+                    self.exibir_apostas_hot(apostas_todas)
+                    self.status_hot.config(text=f"✅ {len(apostas_todas)} apostas carregadas do cache (Hoje/Amanhã)", 
+                                         style='Success.TLabel')
+                self.root.after(0, exibir_apostas_cache)
+            else:
+                # Se não encontrou no cache, executar análise completa
+                self.root.after(0, lambda: atualizar_status("🔄 Cache não encontrado, analisando apostas..."))
+                self.analisar_apostas_thread()
+                
+        except Exception as e:
+            def mostrar_erro():
+                self.status_hot.config(text=f"❌ Erro ao carregar apostas: {str(e)}", 
+                                     style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao carregar apostas hoje/amanhã em thread: {e}")
+    
+    def atualizar_apostas_data_especifica_thread(self, data_api, data_formatada):
+        """Thread para atualizar apostas de data específica sem travar a interface"""
+        try:
+            # Verificar se existe cache para esta data
+            cache_path = self.get_cache_file_path(data_api)
+            
+            def atualizar_status(texto):
+                self.status_hot.config(text=texto, style='Warning.TLabel')
+                
+            self.root.after(0, lambda: atualizar_status(f"🔄 Atualizando apostas para {data_formatada}..."))
+            
+            if os.path.exists(cache_path):
+                # Remover apenas as apostas hot do cache
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+                    
+                    # Remover apostas_hot se existir
+                    if 'apostas_hot' in cache_data:
+                        del cache_data['apostas_hot']
+                        
+                        # Salvar cache atualizado
+                        with open(cache_path, 'w', encoding='utf-8') as f:
+                            json.dump(cache_data, f, ensure_ascii=False, indent=4)
+                        
+                        print(f"✅ Cache de apostas hot removido para {data_formatada}")
+                except Exception as e:
+                    print(f"Erro ao atualizar cache: {e}")
+            
+            # Buscar e analisar jogos novamente (usando a função threaded)
+            self.analisar_jogos_data_especifica_thread(data_api, data_formatada)
+            
+        except Exception as e:
+            def mostrar_erro():
+                self.status_hot.config(text=f"❌ Erro ao atualizar apostas: {str(e)}", 
+                                     style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao atualizar apostas hot em thread: {e}")
+
+    def analisar_apostas(self):
+        """Analisa todas as apostas do sistema, carregando dados de hoje e amanhã"""
+        try:
+            self.status_hot.config(text="🔄 Analisando apostas hot...", style='Warning.TLabel')
+            self.root.update()
+            
+            # Verificar se há cache para hoje e amanhã
+            data_hoje = datetime.now().strftime('%Y-%m-%d')
+            data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            cache_hoje = self.carregar_jogos_cache(data_hoje)
+            cache_amanha = self.carregar_jogos_cache(data_amanha)
+            
+            # Se ambos os caches existem e têm apostas_hot, usar diretamente
+            if (cache_hoje and 'apostas_hot' in cache_hoje and cache_hoje['apostas_hot'] and
+                cache_amanha and 'apostas_hot' in cache_amanha and cache_amanha['apostas_hot']):
+                
+                # Combinar apostas de hoje e amanhã
+                apostas_todas = []
+                
+                # Adicionar data_jogo para filtro correto
+                for aposta in cache_hoje['apostas_hot']:
+                    aposta['data_jogo'] = data_hoje
+                    apostas_todas.append(aposta)
+                    
+                for aposta in cache_amanha['apostas_hot']:
+                    aposta['data_jogo'] = data_amanha
+                    apostas_todas.append(aposta)
+                
+                # Exibir apostas
+                self.exibir_apostas_hot(apostas_todas)
+                self.status_hot.config(text=f"✅ {len(apostas_todas)} apostas carregadas do cache (Hoje e Amanhã)", 
+                                     style='Success.TLabel')
+                return
+            
+            # Se não há cache completo, iniciar análise em thread separada
+            threading.Thread(
+                target=self.analisar_apostas_thread,
+                daemon=True
+            ).start()
+                
+        except Exception as e:
+            self.status_hot.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
+            print(f"Erro ao analisar apostas: {e}")
+            
+    def analisar_apostas_thread(self):
+        """Versão em thread da análise de apostas para não travar a interface"""
+        try:
+            # Atualizar status na thread principal
+            def atualizar_status(texto):
+                self.status_hot.config(text=texto, style='Warning.TLabel')
+            
+            self.root.after(0, lambda: atualizar_status("🔄 Buscando jogos de hoje e amanhã..."))
+            
+            # Buscar jogos de hoje
+            data_hoje = datetime.now().strftime('%Y-%m-%d')
+            jogos_hoje = self.api.buscar_jogos_do_dia(data_hoje)
+            
+            # Buscar jogos de amanhã
+            data_amanha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            jogos_amanha = self.api.buscar_jogos_do_dia(data_amanha)
+            
+            if not jogos_hoje and not jogos_amanha:
+                self.root.after(0, lambda: atualizar_status("❌ Nenhum jogo encontrado para hoje e amanhã"))
+                return
+            
+            # Criar e exibir barra de progresso
+            def criar_barra_progresso():
+                # Frame para barra de progresso
+                self.progresso_frame = ttk.Frame(self.tab_apostas_hot)
+                self.progresso_frame.pack(fill='x', padx=20, pady=5)
+                
+                self.progresso_var = tk.DoubleVar()
+                self.progresso_barra = ttk.Progressbar(
+                    self.progresso_frame, 
+                    variable=self.progresso_var,
+                    maximum=100,
+                    length=400
+                )
+                self.progresso_barra.pack(fill='x')
+                
+                self.progresso_texto = ttk.Label(self.progresso_frame, text="0%")
+                self.progresso_texto.pack()
+            
+            self.root.after(0, criar_barra_progresso)
+            
+            # Função para atualizar o progresso
+            def atualizar_progresso(valor, texto):
+                def _atualizar():
+                    self.progresso_var.set(valor)
+                    self.progresso_texto.config(text=texto)
+                self.root.after(0, _atualizar)
+            
+            # Processar jogos e gerar apostas hot
+            apostas_todas = []
+            
+            # Processar jogos de hoje se tiver
+            if jogos_hoje:
+                self.root.after(0, lambda: atualizar_status("🔄 Analisando jogos de hoje..."))
+                
+                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:100])  # Limitar a 100 jogos
+                
+                # Função para progresso de hoje (0-50%)
+                def progress_callback_hoje(valor, texto):
+                    progresso_hoje = valor / 2  # Converter para escala 0-50%
+                    atualizar_progresso(progresso_hoje, f"Hoje: {texto}")
+                
+                apostas_hoje, jogos_hoje_com_odds = self.analisar_jogos_completo_com_progresso(
+                    jogos_validos_hoje, 'Hoje', progress_callback_hoje
+                )
+                
+                # Adicionar data_jogo às apostas de hoje
+                for aposta in apostas_hoje:
+                    aposta['data_jogo'] = data_hoje
+                
+                apostas_todas.extend(apostas_hoje)
+                
+                # Salvar cache de hoje
+                dados_cache_hoje = {
+                    'jogos': jogos_hoje_com_odds,
+                    'apostas_hot': apostas_hoje,
+                    'timestamp': datetime.now().timestamp()
+                }
+                self.salvar_jogos_cache(data_hoje, dados_cache_hoje)
+            
+            # Processar jogos de amanhã se tiver
+            if jogos_amanha:
+                self.root.after(0, lambda: atualizar_status("🔄 Analisando jogos de amanhã..."))
+                
+                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:100])  # Limitar a 100 jogos
+                
+                # Função para progresso de amanhã (50-100%)
+                def progress_callback_amanha(valor, texto):
+                    progresso_amanha = 50 + (valor / 2)  # Converter para escala 50-100%
+                    atualizar_progresso(progresso_amanha, f"Amanhã: {texto}")
+                
+                apostas_amanha, jogos_amanha_com_odds = self.analisar_jogos_completo_com_progresso(
+                    jogos_validos_amanha, 'Amanhã', progress_callback_amanha
+                )
+                
+                # Adicionar data_jogo às apostas de amanhã
+                for aposta in apostas_amanha:
+                    aposta['data_jogo'] = data_amanha
+                
+                apostas_todas.extend(apostas_amanha)
+                
+                # Salvar cache de amanhã
+                dados_cache_amanha = {
+                    'jogos': jogos_amanha_com_odds,
+                    'apostas_hot': apostas_amanha,
+                    'timestamp': datetime.now().timestamp()
+                }
+                self.salvar_jogos_cache(data_amanha, dados_cache_amanha)
+            
+            # Remover barra de progresso e exibir apostas na thread principal
+            def finalizar_processamento():
+                # Remover barra de progresso
+                if hasattr(self, 'progresso_frame'):
+                    self.progresso_frame.destroy()
+                
+                # Exibir apostas
+                if apostas_todas:
+                    self.exibir_apostas_hot(apostas_todas)
+                    self.status_hot.config(text=f"✅ {len(apostas_todas)} apostas analisadas", 
+                                         style='Success.TLabel')
+                else:
+                    self.status_hot.config(text="❌ Nenhuma aposta encontrada", 
+                                         style='Warning.TLabel')
+            
+            self.root.after(0, finalizar_processamento)
+                
+        except Exception as e:
+            def mostrar_erro():
+                # Remover barra de progresso
+                if hasattr(self, 'progresso_frame'):
+                    self.progresso_frame.destroy()
+                    
+                self.status_hot.config(text=f"❌ Erro: {str(e)}", style='Warning.TLabel')
+            self.root.after(0, mostrar_erro)
+            print(f"Erro ao analisar apostas em thread: {e}")
+    
     def atualizar_apostas_hot_interface(self, apostas_lista=None):
         """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada pela média de probabilidades"""
         try:
@@ -851,9 +1432,24 @@ class BetBoosterV2:
             # Ordenar apostas pela média de probabilidades (prob_implicita + prob_calculada)
             apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: (x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2, reverse=True)
             
-            # Adicionar apostas ordenadas
+            # Criar container para organizar apostas em duas colunas
+            container_frame = ttk.Frame(self.apostas_hot_frame)
+            container_frame.pack(fill='both', expand=True)
+            
+            # Criar dois frames lado a lado para as colunas
+            col1_frame = ttk.Frame(container_frame)
+            col1_frame.pack(side='left', fill='both', expand=True, padx=5)
+            
+            col2_frame = ttk.Frame(container_frame)
+            col2_frame.pack(side='left', fill='both', expand=True, padx=5)
+            
+            # Distribuir apostas entre as duas colunas
             for i, aposta in enumerate(apostas_ordenadas):
-                self.criar_card_aposta_hot(aposta, i)
+                # Decidir em qual coluna colocar com base no índice (par/ímpar)
+                parent_frame = col1_frame if i % 2 == 0 else col2_frame
+                
+                # Criar o card da aposta no frame da coluna correta
+                self.criar_card_aposta_hot(aposta, i, parent_frame)
                 
         except Exception as e:
             print(f"Erro ao atualizar interface de apostas hot: {e}")
@@ -878,9 +1474,14 @@ class BetBoosterV2:
         linha1.pack(fill='x', pady=5)
         
         ttk.Label(linha1, text="📅 Data:").pack(side='left', padx=(0, 5))
-        self.entry_data = ttk.Entry(linha1, width=12)
+        
+        # Substituir Entry por DateEntry
+        data_atual = datetime.now()
+        self.entry_data = DateEntry(linha1, width=12, background='darkblue',
+                                  foreground='white', borderwidth=2, year=data_atual.year,
+                                  month=data_atual.month, day=data_atual.day,
+                                  date_pattern='dd/mm/yyyy')
         self.entry_data.pack(side='left', padx=(0, 10))
-        self.entry_data.insert(0, datetime.now().strftime('%d/%m/%Y'))
         
         ttk.Button(linha1, text="🔍 Buscar Jogos", 
                   command=self.buscar_jogos_do_dia).pack(side='left', padx=5)
@@ -1565,7 +2166,7 @@ class BetBoosterV2:
             self.exibir_apostas_hot_prontas()
         else:
             # Carregar pela primeira vez
-            threading.Thread(target=self.carregar_apostas_hot, daemon=True).start()
+            threading.Thread(target=self.carregar_apostas_data_atual, daemon=True).start()
     
     def carregar_apostas_hot(self):
         """Carrega e analisa as melhores apostas de hoje e amanhã"""
@@ -1847,9 +2448,9 @@ class BetBoosterV2:
                     
                     if odd >= 1.7 and odd <= 2.1 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 1.7 and prob_impl >= 40 and prob_calc > 60:
+                    elif odd >= 1.7 and prob_impl >= 40 and prob_calc > 50:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 1.7 and prob_impl >= 30 and prob_calc > 60:
+                    elif odd >= 1.7 and prob_impl >= 30 and prob_calc > 50:
                         tipo_recomendacao = "ARRISCADA"
                     elif odd >= 1.7 and prob_impl >= 20 and prob_calc > 60:
                         tipo_recomendacao = "MUITO_ARRISCADA"
@@ -1955,11 +2556,11 @@ class BetBoosterV2:
         self.atualizar_apostas_hot_interface()
         self.aplicar_filtros_hot()  # Aplicar filtros atuais
     
-    def criar_card_aposta_hot(self, aposta, index):
+    def criar_card_aposta_hot(self, aposta, index, parent_frame):
         """Cria um card visual para uma aposta recomendada"""
         # Frame do card
-        card_frame = ttk.LabelFrame(self.apostas_hot_frame, text="", padding=15)
-        card_frame.pack(fill='x', pady=5, padx=10)
+        card_frame = ttk.LabelFrame(parent_frame, text="", padding=15)
+        card_frame.pack(fill='x', pady=5, padx=5, expand=True)
         
         # Linha 1: Jogo, horário e ranking
         linha1 = ttk.Frame(card_frame)
@@ -1987,18 +2588,38 @@ class BetBoosterV2:
                               style='Subtitle.TLabel', font=('Arial', 12, 'bold'))
         jogo_label.pack(side='left')
         
-        # Mostrar período (Hoje/Amanhã)
-        periodo = aposta.get('periodo', 'Hoje')
-        periodo_color = 'red' if periodo == 'Hoje' else 'blue'
+        # Mostrar período (Hoje/Amanhã) ou data formatada
+        periodo = aposta.get('periodo', '')
+        data_jogo = aposta.get('data_jogo', '')
+        
+        # Se tiver data_jogo, formatar como DD/MM/YYYY
+        if data_jogo:
+            # Converter formato YYYY-MM-DD para DD/MM/YYYY
+            try:
+                data_obj = datetime.strptime(data_jogo, '%Y-%m-%d')
+                data_formatada = data_obj.strftime('%d/%m/%Y')
+                periodo = data_formatada
+                periodo_color = 'purple'  # Cor diferente para datas específicas
+            except:
+                # Em caso de erro, usar o período já formatado se estiver disponível
+                if periodo and '/' in periodo:  # Já é uma data formatada
+                    periodo_color = 'purple'
+                else:
+                    periodo = data_jogo  # Fallback para a string da data
+                    periodo_color = 'purple'
+        elif periodo and '/' in periodo:  # Já é uma data formatada
+            periodo_color = 'purple'
+        else:
+            # Se não tiver data nem período formatado, usar o padrão de hoje
+            periodo = datetime.now().strftime('%d/%m/%Y')
+            periodo_color = 'red'
+            
         periodo_label = ttk.Label(linha1, text=f"📅 {periodo}", 
                                  font=('Arial', 10, 'bold'))
         periodo_label.pack(side='right')
         
         # Configurar cor do período
-        if periodo == 'Hoje':
-            periodo_label.configure(foreground='red')
-        else:
-            periodo_label.configure(foreground='blue')
+        periodo_label.configure(foreground=periodo_color)
         
         horario_label = ttk.Label(linha1, text=f"⏰ {aposta['horario']}", 
                                  style='Success.TLabel')
@@ -2065,9 +2686,9 @@ class BetBoosterV2:
         acoes_frame.pack(fill='x', pady=10)
         
         ttk.Button(acoes_frame, text="📋 Adicionar à Múltipla", 
-                  command=lambda: self.adicionar_aposta_multipla(aposta)).pack(side='left', padx=5)
+                  command=lambda a=aposta: self.adicionar_aposta_multipla(a)).pack(side='left', padx=5)
         ttk.Button(acoes_frame, text="📊 Ver Análise Completa", 
-                  command=lambda: self.ver_analise_completa(aposta)).pack(side='left', padx=5)
+                  command=lambda a=aposta: self.ver_analise_completa(a)).pack(side='left', padx=5)
     
     # Métodos para Jogos do Dia
     def buscar_jogos_do_dia(self):
@@ -2076,9 +2697,8 @@ class BetBoosterV2:
             self.status_jogos.config(text="🔄 Verificando cache...", style='Warning.TLabel')
             self.root.update()
             
-            # Converter data do formato DD/MM/YYYY para YYYY-MM-DD
-            data_input = self.entry_data.get()
-            data_obj = datetime.strptime(data_input, '%d/%m/%Y')
+            # Obter data diretamente do DateEntry
+            data_obj = self.entry_data.get_date()
             data_api = data_obj.strftime('%Y-%m-%d')
             
             # Tentar carregar do cache primeiro
@@ -2475,9 +3095,8 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
     def forcar_atualizacao_jogos(self):
         """Atualiza apenas os jogos na aba sem mexer no cache"""
         try:
-            # Converter data do formato DD/MM/YYYY para YYYY-MM-DD
-            data_input = self.entry_data.get()
-            data_obj = datetime.strptime(data_input, '%d/%m/%Y')
+            # Obter data diretamente do DateEntry
+            data_obj = self.entry_data.get_date()
             data_api = data_obj.strftime('%Y-%m-%d')
             
             # Atualizar status
@@ -2631,10 +3250,6 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
             for k in range(int(linha) + 1):
                 prob_under += (gols_esperados ** k * exp(-gols_esperados)) / factorial(k)
             return prob_under * 100
-    
-    def configurar_filtros_hot(self):
-        """Configura filtros para apostas hot"""
-        messagebox.showinfo("Info", "Funcionalidade de filtros será implementada")
     
     def adicionar_aposta_multipla(self, aposta):
         """Adiciona aposta à múltipla"""
