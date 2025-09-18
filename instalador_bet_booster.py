@@ -347,39 +347,155 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         pasta_atual = os.path.dirname(os.path.abspath(__file__))
         requirements_path = os.path.join(pasta_atual, 'docs', 'requirements.txt')
         
+        # Primeira tentativa: atualizar pip para garantir compatibilidade
+        try:
+            self.log_message("🔄 Atualizando pip para versão mais recente...")
+            upgrade_result = subprocess.run([
+                sys.executable, "-m", "pip", "install", "--upgrade", "pip"
+            ], capture_output=True, text=True, timeout=120)
+            
+            if upgrade_result.returncode == 0:
+                self.log_message("✅ pip atualizado com sucesso")
+            else:
+                self.log_message("⚠️ Não foi possível atualizar pip, continuando mesmo assim...")
+        except Exception as e:
+            self.log_message(f"⚠️ Aviso ao atualizar pip: {e}")
+        
+        # Verificar e instalar requirements.txt
         if os.path.exists(requirements_path):
             self.log_message(f"📋 Arquivo requirements.txt encontrado: {requirements_path}")
+            
+            # Ler bibliotecas do arquivo requirements.txt (ignorando comentários e bibliotecas built-in)
+            bibliotecas = []
             try:
-                self.log_message("📥 Instalando dependências do requirements.txt...")
-                result = subprocess.run([
-                    sys.executable, "-m", "pip", "install", "-r", requirements_path
-                ], capture_output=True, text=True, timeout=300)
+                with open(requirements_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        # Ignorar linhas vazias, comentários e bibliotecas padrão do Python
+                        if line and not line.startswith('#') and not any(builtin in line for builtin in 
+                                                                        ['tkinter  #', 'json  #', 'datetime  #', 
+                                                                         'threading  #', 'os  #', 'sys  #']):
+                            bibliotecas.append(line)
                 
-                if result.returncode == 0:
-                    self.log_message("✅ Dependências do requirements.txt instaladas com sucesso")
-                    self.log_message(f"📝 Output: {result.stdout[:200]}...")
-                else:
-                    self.log_message(f"⚠️  Aviso ao instalar requirements: {result.stderr[:200]}...")
-                    # Tentar instalação individual das dependências críticas
-                    self.instalar_dependencias_individuais()
-                    
-            except subprocess.TimeoutExpired:
-                self.log_message("⏱️  Timeout na instalação - continuando com instalação individual...")
-                self.instalar_dependencias_individuais()
+                self.log_message(f"� Encontradas {len(bibliotecas)} bibliotecas para instalar: {', '.join(bibliotecas)}")
+                
+                # Tentar instalar bibliotecas individualmente do requirements
+                self.instalar_bibliotecas_do_requirements(bibliotecas)
+                
             except Exception as e:
-                self.log_message(f"❌ Erro ao instalar requirements: {e}")
+                self.log_message(f"❌ Erro ao processar requirements.txt: {e}")
+                # Cair no modo de fallback com bibliotecas essenciais
                 self.instalar_dependencias_individuais()
         else:
-            self.log_message("⚠️  requirements.txt não encontrado - instalando dependências essenciais...")
+            self.log_message("⚠️ requirements.txt não encontrado - instalando dependências essenciais...")
             self.instalar_dependencias_individuais()
     
+    def instalar_bibliotecas_do_requirements(self, bibliotecas):
+        """Instala bibliotecas listadas no requirements.txt individualmente"""
+        self.log_message("📦 Instalando bibliotecas do requirements.txt individualmente...")
+        
+        bibliotecas_sucesso = []
+        bibliotecas_falha = []
+        
+        for lib in bibliotecas:
+            try:
+                # Limpar a biblioteca (remover comentários)
+                lib_clean = lib.split('#')[0].strip()
+                
+                self.log_message(f"📥 Instalando {lib_clean}...")
+                
+                # Usar --no-deps para tkcalendar para evitar conflitos
+                if 'tkcalendar' in lib_clean:
+                    self.log_message("🔧 Usando configuração especial para tkcalendar...")
+                    result = subprocess.run([
+                        sys.executable, "-m", "pip", "install", lib_clean, "--no-deps"
+                    ], capture_output=True, text=True, timeout=180)
+                else:
+                    result = subprocess.run([
+                        sys.executable, "-m", "pip", "install", lib_clean
+                    ], capture_output=True, text=True, timeout=180)
+                
+                if result.returncode == 0:
+                    self.log_message(f"✅ {lib_clean} instalado com sucesso")
+                    bibliotecas_sucesso.append(lib_clean)
+                else:
+                    self.log_message(f"⚠️ Erro ao instalar {lib_clean}: {result.stderr[:150]}...")
+                    bibliotecas_falha.append(lib_clean)
+                    
+                    # Tentar instalar versão sem restrição de versão se falhar
+                    if '>=' in lib_clean or '==' in lib_clean:
+                        lib_name = lib_clean.split('>=')[0].split('==')[0].strip()
+                        self.log_message(f"🔄 Tentando instalar {lib_name} sem restrição de versão...")
+                        
+                        alt_result = subprocess.run([
+                            sys.executable, "-m", "pip", "install", lib_name
+                        ], capture_output=True, text=True, timeout=180)
+                        
+                        if alt_result.returncode == 0:
+                            self.log_message(f"✅ {lib_name} instalado com sucesso (versão alternativa)")
+                            bibliotecas_sucesso.append(lib_name)
+                        else:
+                            self.log_message(f"❌ Falha ao instalar {lib_name} (versão alternativa)")
+                    
+            except subprocess.TimeoutExpired:
+                self.log_message(f"⏱️ Timeout ao instalar {lib}")
+                bibliotecas_falha.append(lib)
+            except Exception as e:
+                self.log_message(f"❌ Erro ao instalar {lib}: {e}")
+                bibliotecas_falha.append(lib)
+        
+        # Resumo da instalação
+        if bibliotecas_sucesso:
+            self.log_message(f"✅ {len(bibliotecas_sucesso)} bibliotecas instaladas com sucesso: {', '.join(bibliotecas_sucesso)}")
+        
+        if bibliotecas_falha:
+            self.log_message(f"⚠️ {len(bibliotecas_falha)} bibliotecas com falha na instalação: {', '.join(bibliotecas_falha)}")
+            # Se falhar a instalação das bibliotecas do requirements, tentar o método alternativo
+            if 'tkcalendar' in ' '.join(bibliotecas_falha):
+                self.instalar_tkcalendar_alternativo()
+    
+    def instalar_tkcalendar_alternativo(self):
+        """Método alternativo para instalar tkcalendar"""
+        self.log_message("🔄 Tentando instalar tkcalendar usando método alternativo...")
+        
+        try:
+            # Verificar dependências do tkcalendar primeiro (Babel, pytz)
+            for dep in ["Babel", "pytz"]:
+                self.log_message(f"📥 Instalando dependência {dep} para tkcalendar...")
+                dep_result = subprocess.run([
+                    sys.executable, "-m", "pip", "install", dep
+                ], capture_output=True, text=True, timeout=120)
+                
+                if dep_result.returncode == 0:
+                    self.log_message(f"✅ {dep} instalado com sucesso")
+                else:
+                    self.log_message(f"⚠️ Aviso ao instalar {dep}: {dep_result.stderr[:100]}...")
+            
+            # Agora instalar tkcalendar
+            self.log_message("📥 Instalando tkcalendar...")
+            result = subprocess.run([
+                sys.executable, "-m", "pip", "install", "tkcalendar"
+            ], capture_output=True, text=True, timeout=180)
+            
+            if result.returncode == 0:
+                self.log_message("✅ tkcalendar instalado com sucesso (método alternativo)")
+                return True
+            else:
+                self.log_message(f"⚠️ Falha no método alternativo: {result.stderr[:150]}...")
+                return False
+                
+        except Exception as e:
+            self.log_message(f"❌ Erro no método alternativo para tkcalendar: {e}")
+            return False
+    
     def instalar_dependencias_individuais(self):
-        """Instala dependências uma por uma"""
-        self.log_message("🔄 Instalando dependências individuais...")
+        """Instala dependências essenciais uma por uma"""
+        self.log_message("🔄 Instalando dependências essenciais manualmente...")
         
         # Lista de bibliotecas essenciais para o Bet Booster
         bibliotecas_essenciais = [
             'requests>=2.32.0',  # Para APIs de dados esportivos
+            'tkcalendar==1.6.1', # Para seleção de datas
         ]
         
         # Lista de bibliotecas opcionais para funcionalidades extras
@@ -392,6 +508,13 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
         for lib in bibliotecas_essenciais:
             try:
                 self.log_message(f"📥 Instalando biblioteca essencial: {lib}...")
+                
+                # Configuração especial para tkcalendar
+                if 'tkcalendar' in lib:
+                    if not self.instalar_tkcalendar_alternativo():
+                        self.log_message("⚠️ Não foi possível instalar tkcalendar. Algumas funcionalidades de calendário podem não funcionar.")
+                    continue
+                
                 result = subprocess.run([
                     sys.executable, "-m", "pip", "install", lib
                 ], capture_output=True, text=True, timeout=120)
@@ -400,14 +523,25 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
                     self.log_message(f"✅ {lib} instalado com sucesso")
                 else:
                     self.log_message(f"❌ Erro ao instalar {lib}: {result.stderr[:100]}...")
-                    raise Exception(f"Falha crítica ao instalar {lib}")
+                    
+                    # Tentar versão sem restrição se falhar
+                    if '>=' in lib or '==' in lib:
+                        lib_name = lib.split('>=')[0].split('==')[0].strip()
+                        self.log_message(f"🔄 Tentando instalar {lib_name} sem restrição de versão...")
+                        
+                        alt_result = subprocess.run([
+                            sys.executable, "-m", "pip", "install", lib_name
+                        ], capture_output=True, text=True, timeout=120)
+                        
+                        if alt_result.returncode == 0:
+                            self.log_message(f"✅ {lib_name} instalado com sucesso (versão alternativa)")
+                        else:
+                            self.log_message(f"⚠️ Falha ao instalar {lib_name} (versão alternativa)")
                     
             except subprocess.TimeoutExpired:
-                self.log_message(f"⏱️  Timeout ao instalar {lib}")
-                raise Exception(f"Timeout ao instalar dependência crítica: {lib}")
+                self.log_message(f"⏱️ Timeout ao instalar {lib}")
             except Exception as e:
-                self.log_message(f"❌ Erro crítico ao instalar {lib}: {e}")
-                raise e
+                self.log_message(f"❌ Erro ao instalar {lib}: {e}")
         
         # Instalar bibliotecas opcionais (não críticas)
         for lib in bibliotecas_opcionais:
@@ -420,12 +554,12 @@ Este software é destinado apenas para fins educacionais e de entretenimento. Ap
                 if result.returncode == 0:
                     self.log_message(f"✅ {lib} instalado com sucesso")
                 else:
-                    self.log_message(f"⚠️  Aviso ao instalar {lib}: {result.stderr[:100]}...")
+                    self.log_message(f"⚠️ Aviso ao instalar {lib}: {result.stderr[:100]}...")
                     
             except subprocess.TimeoutExpired:
-                self.log_message(f"⏱️  Timeout ao instalar {lib} (opcional)")
+                self.log_message(f"⏱️ Timeout ao instalar {lib} (opcional)")
             except Exception as e:
-                self.log_message(f"⚠️  Aviso: {lib} (opcional) - {e}")
+                self.log_message(f"⚠️ Aviso: {lib} (opcional) - {e}")
     
     def configurar_ambiente(self):
         """Configura o ambiente do programa"""
