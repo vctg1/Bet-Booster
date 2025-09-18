@@ -2639,7 +2639,7 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd > 1.6 and odd <= 2.1 and value_percent > 0:
+                    if odd <= 2.1 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
                     elif prob_impl >= 40 and prob_calc >= 50:
                         tipo_recomendacao = "MODERADA"
@@ -2707,7 +2707,7 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd >= 1.5 and odd <= 1.9 and value_percent > 0:
+                    if odd <= 1.9 and value_percent > 0:
                         tipo_recomendacao = "FORTE"
                     elif prob_impl >= 50 and prob_calc > 60:
                         tipo_recomendacao = "MODERADA"
