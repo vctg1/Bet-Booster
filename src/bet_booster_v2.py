@@ -2167,12 +2167,12 @@ class BetBoosterV2:
 
 🎯 PROBABILIDADES DE GOLS:
 ═══════════════════════════════════════
-📊 Over 1.5 gols: {probabilidades['over_15']:.1f}%
-📊 Under 1.5 gols: {probabilidades['under_15']:.1f}%
-📊 Over 2.5 gols: {probabilidades['over_25']:.1f}%
-📊 Under 2.5 gols: {probabilidades['under_25']:.1f}%
-📊 Over 3.5 gols: {probabilidades['over_35']:.1f}%
-📊 Under 3.5 gols: {probabilidades['under_35']:.1f}%
+📊 Mais de 1.5 gols: {probabilidades['over_15']:.1f}%
+📊 Menos de 1.5 gols: {probabilidades['under_15']:.1f}%
+📊 Mais de 2.5 gols: {probabilidades['over_25']:.1f}%
+📊 Menos de 2.5 gols: {probabilidades['under_25']:.1f}%
+📊 Mais de 3.5 gols: {probabilidades['over_35']:.1f}%
+📊 Menos de 3.5 gols: {probabilidades['under_35']:.1f}%
 
 💰 RECOMENDAÇÕES DE APOSTAS:
 ═══════════════════════════════════════
@@ -2269,15 +2269,15 @@ class BetBoosterV2:
         
         # Apenas recomendar over 2.5 se gols esperados > 4
         if probabilidades['over_25'] >= 60 and gols_esperados_total >= 4.0:
-            recomendacoes += f"🟢 FORTE: Over 2.5 gols ({probabilidades['over_25']:.1f}%)\n"
+            recomendacoes += f"🟢 FORTE: Mais de 2.5 gols ({probabilidades['over_25']:.1f}%)\n"
         elif probabilidades['under_25'] >= 60 and gols_esperados_total <= 2.0:
-            recomendacoes += f"🟢 FORTE: Under 2.5 gols ({probabilidades['under_25']:.1f}%)\n"
+            recomendacoes += f"🟢 FORTE: Menos de 2.5 gols ({probabilidades['under_25']:.1f}%)\n"
         
         if probabilidades['over_15'] >= 75:
-            recomendacoes += f"🟡 ARRISCADA: Over 1.5 gols ({probabilidades['over_15']:.1f}%)\n"
+            recomendacoes += f"🟡 ARRISCADA: Mais de 1.5 gols ({probabilidades['over_15']:.1f}%)\n"
         
         if probabilidades['over_35'] >= 30:
-            recomendacoes += f"🟡 ARRISCADA: Over 3.5 gols ({probabilidades['over_35']:.1f}%)\n"
+            recomendacoes += f"🟡 ARRISCADA: Mais de 3.5 gols ({probabilidades['over_35']:.1f}%)\n"
         
         if not recomendacoes:
             recomendacoes = "⚪ Nenhuma recomendação forte identificada.\n"
@@ -2688,8 +2688,8 @@ class BetBoosterV2:
                 value_under = (prob_under25_calc / prob_under25_impl) if prob_under25_impl > 0 else 0
                 
                 apostas_gols = [
-                    ('Over 2.5 gols', value_over, prob_over25_calc, prob_over25_impl, gols_odds['over']),
-                    ('Under 2.5 gols', value_under, prob_under25_calc, prob_under25_impl, gols_odds['under'])
+                    ('Mais de 2.5 gols', value_over, prob_over25_calc, prob_over25_impl, gols_odds['over']),
+                    ('Menos de 2.5 gols', value_under, prob_under25_calc, prob_under25_impl, gols_odds['under'])
                 ]
                 
                 for aposta, value, prob_calc, prob_impl, odd in apostas_gols:
@@ -2697,8 +2697,12 @@ class BetBoosterV2:
                     value_percent = (value - 1) * 100
                     
                     # Filtrar apostas over 2.5 com poucos gols esperados
-                    if aposta == 'Over 2.5 gols' and gols_esperados < 4.0:
+                    if aposta == 'Mais de 2.5 gols' and gols_esperados < 4.0:
                         continue  # Pular apostas over 2.5 quando gols esperados for menor que 4
+                    
+                    # Filtrar apostas under 2.5 com muitos gols esperados
+                    if aposta == 'Menos de 2.5 gols' and gols_esperados > 2.0:
+                        continue  # Pular apostas under 2.5 quando gols esperados for maior que 2
                     
                     # Aplicar NOVAS regras para apostas Over/Under:
                     # Forte: Prob. Booster > 50%, Prob. Bet365 >= 45%, value > 0
@@ -3271,8 +3275,8 @@ class BetBoosterV2:
 🎯 Total: {probabilidades['gols_esperados_total']:.2f}
 
 📈 MERCADOS DE GOLS:
-Over 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'over'):.1f}%
-Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under'):.1f}%
+Mais de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'over'):.1f}%
+Menos de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under'):.1f}%
 
 🎯 Modo de Análise: {self.modo_analise.get()}
 """
@@ -3495,12 +3499,12 @@ Under 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total']
 🎯 Total: {probabilidades['gols_esperados_total']:.2f}
 
 📈 MERCADOS DE GOLS:
-Over 1.5: {probabilidades['over_15']:.1f}%
-Under 1.5: {probabilidades['under_15']:.1f}%
-Over 2.5: {probabilidades['over_25']:.1f}%
-Under 2.5: {probabilidades['under_25']:.1f}%
-Over 3.5: {probabilidades['over_35']:.1f}%
-Under 3.5: {probabilidades['under_35']:.1f}%
+Mais de 1.5: {probabilidades['over_15']:.1f}%
+Menos de 1.5: {probabilidades['under_15']:.1f}%
+Mais de 2.5: {probabilidades['over_25']:.1f}%
+Menos de 2.5: {probabilidades['under_25']:.1f}%
+Mais de 3.5: {probabilidades['over_35']:.1f}%
+Menos de 3.5: {probabilidades['under_35']:.1f}%
 
 💰 APOSTA RECOMENDADA:
 {aposta['aposta']} (Odd: {aposta['odd']:.2f})
@@ -3945,8 +3949,8 @@ Under 3.5: {probabilidades['under_35']:.1f}%
         ttk.Label(aposta_frame, text="Tipo de Aposta:").pack(anchor='w')
         tipo_aposta = ttk.Combobox(aposta_frame, values=[
             f"Vitória {casa}", "Empate", f"Vitória {visitante}",
-            "Over 2.5 gols", "Under 2.5 gols", "Ambos Marcam",
-            "Over 1.5 gols", "Under 1.5 gols"
+            "Mais de 2.5 gols", "Menos de 2.5 gols", "Ambos Marcam",
+            "Mais de 1.5 gols", "Menos de 1.5 gols"
         ], state="readonly", width=30)
         tipo_aposta.pack(fill='x', pady=5)
         
@@ -4051,8 +4055,8 @@ Under 3.5: {probabilidades['under_35']:.1f}%
                 
                 gols_odds = odds['goalsOu25']
                 opcoes_gols = [
-                    ("Over 2.5 gols", gols_odds['over'], 'Over 2.5'),
-                    ("Under 2.5 gols", gols_odds['under'], 'Under 2.5')
+                    ("Mais de 2.5 gols", gols_odds['over'], 'Mais de 2.5'),
+                    ("Menos de 2.5 gols", gols_odds['under'], 'Menos de 2.5')
                 ]
                 
                 for texto, odd, tipo in opcoes_gols:
