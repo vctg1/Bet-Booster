@@ -354,23 +354,23 @@ class BetBoosterV2:
             # Etapa 6: Preparar jogos para análise
             self.atualizar_loading(45, "Processando e filtrando jogos de hoje...")
             
-            # Se não há cache, processar os primeiros 100 jogos
+            # Se não há cache, processar todos os jogos
             if not cache_hoje and jogos_hoje:
-                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:100])
-                print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise (limitado a 100)")
+                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje)
+                print(f"📊 {len(jogos_validos_hoje)} jogos de hoje preparados para análise")
             else:
                 jogos_validos_hoje = []
                 
             self.atualizar_loading(50, "Processando e filtrando jogos de amanhã...")
             if not cache_amanha and jogos_amanha:
-                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:100])
-                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise (limitado a 100)")
+                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha)
+                print(f"📊 {len(jogos_validos_amanha)} jogos de amanhã preparados para análise")
             else:
                 jogos_validos_amanha = []
             
             total_para_analisar = len(jogos_validos_hoje) + len(jogos_validos_amanha)
             if total_para_analisar > 0:
-                print(f"🔥 {total_para_analisar} jogos SELECIONADOS para análise completa (máximo 200)")
+                print(f"🔥 {total_para_analisar} jogos SELECIONADOS para análise completa")
             time.sleep(0.5)
             
             # Etapa 7: CARREGAR E ANALISAR APOSTAS HOT COMPLETAMENTE
@@ -486,7 +486,7 @@ class BetBoosterV2:
         apostas_analisadas = []
         jogos_com_odds = []  # Lista para jogos enriquecidos com odds
 
-        print(f"🔥 Iniciando análise completa PARALELA de {len(jogos)} jogos ({periodo}) - limitado a 100 primeiros")
+        print(f"🔥 Iniciando análise completa PARALELA de {len(jogos)} jogos ({periodo})")
 
         # Usar ThreadPoolExecutor para processamento paralelo
         max_workers = 10  # Máximo 10 threads simultâneas para não sobrecarregar API
@@ -863,7 +863,7 @@ class BetBoosterV2:
             self.root.after(0, atualizar_status_processando)
             
             # Usar a mesma abordagem de analisar_jogos_completo
-            jogos_validos = self.processar_todos_jogos(jogos[:100])  # Limitar a 100 jogos
+            jogos_validos = self.processar_todos_jogos(jogos)  # Limitar a 100 jogos
             
             # Criar e exibir barra de progresso
             def criar_barra_progresso():
@@ -1359,7 +1359,7 @@ class BetBoosterV2:
             print(f"🌐 {len(jogos)} jogos encontrados para {data_formatada}")
             
             # Processar jogos válidos
-            jogos_validos = self.processar_todos_jogos(jogos[:100])  # Limitar a 100 jogos
+            jogos_validos = self.processar_todos_jogos(jogos)  # Limitar a 100 jogos
             if not jogos_validos:
                 print(f"❌ Nenhum jogo válido para {data_formatada}")
                 return
@@ -1526,7 +1526,7 @@ class BetBoosterV2:
             if jogos_hoje:
                 self.root.after(0, lambda: atualizar_status("🔄 Analisando jogos de hoje..."))
                 
-                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje[:100])  # Limitar a 100 jogos
+                jogos_validos_hoje = self.processar_todos_jogos(jogos_hoje)  # Limitar a 100 jogos
                 
                 # Função para progresso de hoje (0-50%)
                 def progress_callback_hoje(valor, texto):
@@ -1555,7 +1555,7 @@ class BetBoosterV2:
             if jogos_amanha:
                 self.root.after(0, lambda: atualizar_status("🔄 Analisando jogos de amanhã..."))
                 
-                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha[:100])  # Limitar a 100 jogos
+                jogos_validos_amanha = self.processar_todos_jogos(jogos_amanha)  # Limitar a 100 jogos
                 
                 # Função para progresso de amanhã (50-100%)
                 def progress_callback_amanha(valor, texto):
