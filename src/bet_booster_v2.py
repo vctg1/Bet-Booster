@@ -709,6 +709,14 @@ class BetBoosterV2:
         self.filtro_tipo.set("Todos")
         self.filtro_tipo.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
         
+        # Filtro de Ordenação
+        ttk.Label(filtros_frame, text="🔄 Ordenar por:").pack(side='left', padx=(0, 5))
+        self.filtro_ordenacao = ttk.Combobox(filtros_frame, values=["Prob. Média", "Horário", "Odd"], 
+                                           state="readonly", width=12)
+        self.filtro_ordenacao.pack(side='left', padx=(0, 15))
+        self.filtro_ordenacao.set("Prob. Média")
+        self.filtro_ordenacao.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
+        
         # Botão de limpeza de filtros
         ttk.Button(filtros_frame, text="🔄 Limpar Filtros", 
                   command=self.limpar_filtros_hot).pack(side='left', padx=15)
@@ -972,6 +980,7 @@ class BetBoosterV2:
             
             filtro_recomendacao = self.filtro_recomendacao.get()
             filtro_tipo = self.filtro_tipo.get()
+            filtro_ordenacao = self.filtro_ordenacao.get()
             
             # Filtrar apostas
             apostas_filtradas = []
@@ -1008,6 +1017,21 @@ class BetBoosterV2:
                 if incluir_data and incluir_recomendacao and incluir_tipo:
                     apostas_filtradas.append(aposta)
             
+            # Ordenar apostas conforme filtro selecionado
+            if filtro_ordenacao == "Horário":
+                apostas_filtradas.sort(key=lambda x: x.get('horario', '00:00'))
+            elif filtro_ordenacao == "Odd":
+                apostas_filtradas.sort(key=lambda x: float(x.get('odd', 0)))
+            else:  # Ordenação padrão por probabilidade média
+                # Calcular a média de probabilidade para cada aposta
+                for aposta in apostas_filtradas:
+                    prob_calc = float(aposta.get('prob_calculada', 0))
+                    prob_impl = float(aposta.get('prob_implicita', 0))
+                    aposta['prob_media'] = (prob_calc + prob_impl) / 2
+                
+                # Ordenar pela média das probabilidades (maior para menor)
+                apostas_filtradas.sort(key=lambda x: float(x.get('prob_media', 0)), reverse=True)
+            
             # Atualizar interface com apostas filtradas
             self.atualizar_apostas_hot_interface(apostas_filtradas)
             
@@ -1020,6 +1044,8 @@ class BetBoosterV2:
                 status_text += f" ({filtro_recomendacao})"
             if filtro_tipo != "Todos":
                 status_text += f" ({filtro_tipo})"
+            if filtro_ordenacao != "Prob. Média":
+                status_text += f" [Ord: {filtro_ordenacao}]"
             
             self.status_hot.config(text=status_text, style='Success.TLabel')
             
@@ -1104,6 +1130,7 @@ class BetBoosterV2:
         # Resetar filtros de recomendação e tipo
         self.filtro_recomendacao.set("Todos")
         self.filtro_tipo.set("Todos")
+        self.filtro_ordenacao.set("Prob. Média")
         
         # Resetar o calendário para a data atual
         data_atual = datetime.now()
@@ -1608,7 +1635,7 @@ class BetBoosterV2:
             print(f"Erro ao analisar apostas em thread: {e}")
     
     def atualizar_apostas_hot_interface(self, apostas_lista=None):
-        """Atualiza a interface das apostas hot com a lista fornecida ou completa, ordenada pela média de probabilidades"""
+        """Atualiza a interface das apostas hot com a lista fornecida ou completa"""
         try:
             # Limpar frame
             for widget in self.apostas_hot_frame.winfo_children():
@@ -1622,8 +1649,8 @@ class BetBoosterV2:
                          style='Subtitle.TLabel').pack(pady=20)
                 return
             
-            # Ordenar apostas pela média de probabilidades (prob_implicita + prob_calculada)
-            apostas_ordenadas = sorted(apostas_para_mostrar, key=lambda x: (x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2, reverse=True)
+            # As apostas já vêm ordenadas do método aplicar_filtros_hot
+            apostas_ordenadas = apostas_para_mostrar
             
             # Criar container para organizar apostas em duas colunas
             container_frame = ttk.Frame(self.apostas_hot_frame)
@@ -2445,8 +2472,14 @@ class BetBoosterV2:
             # Ordenar pela média de probabilidades (prob_implicita + prob_calculada)
             apostas_recomendadas.sort(key=lambda x: (
                 0 if x.get('periodo') == 'Hoje' else 1,  # Hoje primeiro
-                -((x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2)  # Depois pela média de probabilidades (maior para menor)
+                -((float(x.get('prob_calculada', 0)) + float(x.get('prob_implicita', 0)))/2)  # Depois pela média de probabilidades (maior para menor)
             ))
+            
+            # Calcular e adicionar a prob_media para cada aposta
+            for aposta in apostas_recomendadas:
+                prob_calc = float(aposta.get('prob_calculada', 0))
+                prob_impl = float(aposta.get('prob_implicita', 0))
+                aposta['prob_media'] = (prob_calc + prob_impl) / 2
             
             # Exibir apostas hot
             self.exibir_apostas_hot(apostas_recomendadas)
@@ -2662,6 +2695,7 @@ class BetBoosterV2:
                             'prob_calculada': prob_calc,
                             'nossa_prob': prob_calc,  # Adicionar para compatibilidade
                             'prob_implicita': prob_impl,
+                            'prob_media': (prob_calc + prob_impl) / 2,  # Média de probabilidades
                             'forca_recomendacao': forca,
                             'match_id': odds_detalhadas['match_id'],
                             'liga': odds_detalhadas['league'],
@@ -2734,6 +2768,7 @@ class BetBoosterV2:
                             'prob_calculada': prob_calc,
                             'nossa_prob': prob_calc,  # Adicionar para compatibilidade
                             'prob_implicita': prob_impl,
+                            'prob_media': (prob_calc + prob_impl) / 2,  # Média de probabilidades
                             'forca_recomendacao': forca,
                             'match_id': odds_detalhadas['match_id'],
                             'liga': odds_detalhadas['league'],
@@ -2746,12 +2781,12 @@ class BetBoosterV2:
         return recomendacoes
     
     def exibir_apostas_hot(self, apostas):
-        """Exibe as apostas hot na interface ordenadas pela média de probabilidades (maior para menor)"""
-        # Ordenar apostas pela média de probabilidades (prob_implicita + prob_calculada)
-        apostas_ordenadas = sorted(apostas, key=lambda x: (x.get('prob_calculada', 0) + x.get('prob_implicita', 0))/2, reverse=True)
-        self.apostas_hot = apostas_ordenadas  # Armazenar para filtros
-        self.atualizar_apostas_hot_interface()
-        self.aplicar_filtros_hot()  # Aplicar filtros atuais
+        """Exibe as apostas hot na interface usando a ordenação selecionada no filtro"""
+        # Armazenar as apostas
+        self.apostas_hot = apostas
+        
+        # Aplicar filtros para ordenar e exibir conforme selecionado pelo usuário
+        self.aplicar_filtros_hot()  # Aplicar filtros atuais incluindo a ordenação
     
     def criar_card_aposta_hot(self, aposta, index, parent_frame):
         """Cria um card visual para uma aposta recomendada"""
