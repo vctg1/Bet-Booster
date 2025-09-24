@@ -40,6 +40,12 @@ class BetBoosterV2:
         # API Integration
         self.api = RadarEsportivoAPI()
         
+        # Sistema de Banca Simulada
+        self.banca_data = {}
+        self.apostas_ativas = []
+        self.historico_apostas = []
+        self.carregar_dados_banca()
+        
         # Mostrar tela de carregamento
         self.mostrar_tela_carregamento()
         
@@ -2406,29 +2412,105 @@ class BetBoosterV2:
         return f"Últimos 5 {nome_time}: {forma_formatada}"
     
     def create_multiplas_tab(self):
-        """Nova aba: Gestão de Múltiplas"""
+        """Nova aba: Gestão de Múltiplas com Banca Simulada"""
         self.tab_multiplas = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_multiplas, text="🎯 Múltiplas")
         
-        ttk.Label(self.tab_multiplas, text="🎯 GESTÃO DE APOSTAS MÚLTIPLAS", 
+        ttk.Label(self.tab_multiplas, text="🎯 BANCA SIMULADA & MÚLTIPLAS", 
                  style='Title.TLabel').pack(pady=10)
         
+        # Criar notebook interno para organizar melhor
+        self.notebook_multiplas = ttk.Notebook(self.tab_multiplas)
+        self.notebook_multiplas.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Aba 1: Gestão da Banca
+        self.create_banca_tab()
+        
+        # Aba 2: Múltipla Atual
+        self.create_multipla_atual_tab()
+        
+        # Aba 3: Apostas Ativas
+        self.create_apostas_ativas_tab()
+        
+        # Aba 4: Histórico
+        self.create_historico_tab()
+    
+    def create_banca_tab(self):
+        """Aba de gestão da banca simulada"""
+        self.tab_banca = ttk.Frame(self.notebook_multiplas)
+        self.notebook_multiplas.add(self.tab_banca, text="💰 Banca")
+        
+        # Informações da banca
+        banca_info_frame = ttk.LabelFrame(self.tab_banca, text="Informações da Banca", padding=15)
+        banca_info_frame.pack(fill='x', padx=20, pady=10)
+        
+        # Saldo atual
+        self.label_saldo = ttk.Label(banca_info_frame, text="Saldo Atual: R$ 0.00", 
+                                   font=('Arial', 16, 'bold'), foreground='green')
+        self.label_saldo.pack(pady=5)
+        
+        # Estatísticas
+        stats_frame = ttk.Frame(banca_info_frame)
+        stats_frame.pack(fill='x', pady=10)
+        
+        # Coluna esquerda
+        left_stats = ttk.Frame(stats_frame)
+        left_stats.pack(side='left', fill='both', expand=True)
+        
+        self.label_total_depositado = ttk.Label(left_stats, text="Total Depositado: R$ 0.00")
+        self.label_total_depositado.pack(anchor='w', pady=2)
+        
+        self.label_total_ganhos = ttk.Label(left_stats, text="Total Ganhos: R$ 0.00", foreground='green')
+        self.label_total_ganhos.pack(anchor='w', pady=2)
+        
+        # Coluna direita
+        right_stats = ttk.Frame(stats_frame)
+        right_stats.pack(side='right', fill='both', expand=True)
+        
+        self.label_total_perdas = ttk.Label(right_stats, text="Total Perdas: R$ 0.00", foreground='red')
+        self.label_total_perdas.pack(anchor='w', pady=2)
+        
+        self.label_lucro_total = ttk.Label(right_stats, text="Lucro Total: R$ 0.00")
+        self.label_lucro_total.pack(anchor='w', pady=2)
+        
+        # Adicionar saldo
+        adicionar_frame = ttk.LabelFrame(self.tab_banca, text="Adicionar Saldo", padding=15)
+        adicionar_frame.pack(fill='x', padx=20, pady=10)
+        
+        entrada_frame = ttk.Frame(adicionar_frame)
+        entrada_frame.pack(fill='x')
+        
+        ttk.Label(entrada_frame, text="Valor (R$):").pack(side='left', padx=5)
+        self.entry_saldo = ttk.Entry(entrada_frame, width=15)
+        self.entry_saldo.pack(side='left', padx=5)
+        
+        ttk.Button(entrada_frame, text="💰 Depositar", 
+                  command=self.depositar_saldo).pack(side='left', padx=5)
+        
+        # Atualizar informações da banca
+        self.atualizar_info_banca()
+    
+    def create_multipla_atual_tab(self):
+        """Aba da múltipla atual"""
+        self.tab_multipla_atual = ttk.Frame(self.notebook_multiplas)
+        self.notebook_multiplas.add(self.tab_multipla_atual, text="⚽ Múltipla")
+        
         # Frame da múltipla atual
-        multipla_frame = ttk.LabelFrame(self.tab_multiplas, text="Múltipla Atual", padding=15)
+        multipla_frame = ttk.LabelFrame(self.tab_multipla_atual, text="Múltipla Atual", padding=15)
         multipla_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
         # Lista de apostas na múltipla
-        columns_multipla = ('Jogo', 'Aposta', 'Odd', 'Prob. Bet Booster', 'Prob. Bet365', 'Status')
-        self.tree_multipla = ttk.Treeview(multipla_frame, columns=columns_multipla, show='headings', height=10)
+        columns_multipla = ('Jogo', 'Aposta', 'Odd', 'Prob. Bet Booster', 'Prob. Bet365')
+        self.tree_multipla = ttk.Treeview(multipla_frame, columns=columns_multipla, show='headings', height=8)
         
         for col in columns_multipla:
             self.tree_multipla.heading(col, text=col)
             if col == 'Jogo':
-                self.tree_multipla.column(col, width=200)
+                self.tree_multipla.column(col, width=250)
             elif col == 'Aposta':
-                self.tree_multipla.column(col, width=120)
+                self.tree_multipla.column(col, width=150)
             elif col in ['Prob. Bet Booster', 'Prob. Bet365']:
-                self.tree_multipla.column(col, width=100)
+                self.tree_multipla.column(col, width=120)
             else:
                 self.tree_multipla.column(col, width=80)
         
@@ -2438,25 +2520,120 @@ class BetBoosterV2:
         info_frame = ttk.Frame(multipla_frame)
         info_frame.pack(fill='x', pady=10)
         
-        self.label_odd_total = ttk.Label(info_frame, text="Odd Total: 1.00", style='Subtitle.TLabel')
+        self.label_odd_total = ttk.Label(info_frame, text="Odd Total: 1.00", 
+                                       font=('Arial', 12, 'bold'))
         self.label_odd_total.pack(side='left', padx=10)
         
-        self.label_prob_nossa = ttk.Label(info_frame, text="📊 Prob. Bet Booster: 100%", style='Success.TLabel')
+        self.label_prob_nossa = ttk.Label(info_frame, text="📊 Prob. Bet Booster: 100%", 
+                                        foreground='green')
         self.label_prob_nossa.pack(side='left', padx=10)
         
-        self.label_prob_total = ttk.Label(info_frame, text="🎯 Prob. Bet365: 100%", style='Subtitle.TLabel')
+        self.label_prob_total = ttk.Label(info_frame, text="🎯 Prob. Bet365: 100%")
         self.label_prob_total.pack(side='left', padx=10)
         
+        # Frame de apostas
+        apostar_frame = ttk.LabelFrame(multipla_frame, text="Realizar Aposta", padding=10)
+        apostar_frame.pack(fill='x', pady=10)
+        
+        entrada_aposta_frame = ttk.Frame(apostar_frame)
+        entrada_aposta_frame.pack(fill='x')
+        
+        ttk.Label(entrada_aposta_frame, text="Valor da Aposta (R$):").pack(side='left', padx=5)
+        self.entry_valor_aposta = ttk.Entry(entrada_aposta_frame, width=15)
+        self.entry_valor_aposta.pack(side='left', padx=5)
+        
+        self.label_retorno_potencial = ttk.Label(entrada_aposta_frame, text="Retorno Potencial: R$ 0.00", 
+                                               foreground='green')
+        self.label_retorno_potencial.pack(side='left', padx=10)
+        
         # Botões de controle
-        controle_frame = ttk.Frame(multipla_frame)
-        controle_frame.pack(fill='x', pady=10)
+        controle_frame = ttk.Frame(apostar_frame)
+        controle_frame.pack(fill='x', pady=5)
         
         ttk.Button(controle_frame, text="🗑️ Limpar Múltipla", 
                   command=self.limpar_multipla).pack(side='left', padx=5)
-        ttk.Button(controle_frame, text="💾 Salvar Múltipla", 
-                  command=self.salvar_multipla).pack(side='left', padx=5)
-        ttk.Button(controle_frame, text="📊 Calcular Retorno", 
-                  command=self.calcular_retorno_multipla).pack(side='left', padx=5)
+        
+        ttk.Button(controle_frame, text="� Apostar", 
+                  command=self.realizar_aposta_multipla).pack(side='left', padx=5)
+        
+        # Bind para calcular retorno em tempo real
+        self.entry_valor_aposta.bind('<KeyRelease>', self.calcular_retorno_tempo_real)
+    
+    def create_apostas_ativas_tab(self):
+        """Aba das apostas ativas"""
+        self.tab_apostas_ativas = ttk.Frame(self.notebook_multiplas)
+        self.notebook_multiplas.add(self.tab_apostas_ativas, text="🎯 Apostas Ativas")
+        
+        # Frame das apostas ativas
+        ativas_frame = ttk.LabelFrame(self.tab_apostas_ativas, text="Apostas em Andamento", padding=15)
+        ativas_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Lista de apostas ativas
+        columns_ativas = ('ID', 'Data', 'Valor', 'Odd Total', 'Retorno Pot.', 'Status', 'Jogos Green/Total')
+        self.tree_apostas_ativas = ttk.Treeview(ativas_frame, columns=columns_ativas, show='headings', height=8)
+        
+        for col in columns_ativas:
+            self.tree_apostas_ativas.heading(col, text=col)
+            if col == 'ID':
+                self.tree_apostas_ativas.column(col, width=150)
+            elif col == 'Data':
+                self.tree_apostas_ativas.column(col, width=120)
+            elif col in ['Valor', 'Odd Total', 'Retorno Pot.']:
+                self.tree_apostas_ativas.column(col, width=100)
+            else:
+                self.tree_apostas_ativas.column(col, width=100)
+        
+        self.tree_apostas_ativas.pack(fill='both', expand=True)
+        
+        # Botões de ação
+        acoes_frame = ttk.Frame(ativas_frame)
+        acoes_frame.pack(fill='x', pady=10)
+        
+        ttk.Button(acoes_frame, text="👁️ Ver Detalhes", 
+                  command=self.ver_detalhes_aposta).pack(side='left', padx=5)
+        ttk.Button(acoes_frame, text="💰 Cashout", 
+                  command=self.fazer_cashout_aposta).pack(side='left', padx=5)
+        ttk.Button(acoes_frame, text="🔄 Atualizar", 
+                  command=self.atualizar_apostas_ativas).pack(side='left', padx=5)
+        
+        # Atualizar lista
+        self.atualizar_apostas_ativas()
+    
+    def create_historico_tab(self):
+        """Aba do histórico"""
+        self.tab_historico = ttk.Frame(self.notebook_multiplas)
+        self.notebook_multiplas.add(self.tab_historico, text="📊 Histórico")
+        
+        # Frame do histórico
+        historico_frame = ttk.LabelFrame(self.tab_historico, text="Histórico de Apostas", padding=15)
+        historico_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Lista do histórico
+        columns_historico = ('ID', 'Data', 'Valor', 'Odd', 'Resultado', 'Retorno', 'Lucro/Perda')
+        self.tree_historico = ttk.Treeview(historico_frame, columns=columns_historico, show='headings', height=10)
+        
+        for col in columns_historico:
+            self.tree_historico.heading(col, text=col)
+            if col == 'ID':
+                self.tree_historico.column(col, width=150)
+            elif col == 'Data':
+                self.tree_historico.column(col, width=120)
+            else:
+                self.tree_historico.column(col, width=100)
+        
+        self.tree_historico.pack(fill='both', expand=True)
+        
+        # Botões do histórico
+        hist_acoes_frame = ttk.Frame(historico_frame)
+        hist_acoes_frame.pack(fill='x', pady=10)
+        
+        ttk.Button(hist_acoes_frame, text="👁️ Ver Detalhes", 
+                  command=self.ver_detalhes_historico).pack(side='left', padx=5)
+        ttk.Button(hist_acoes_frame, text="🔄 Atualizar", 
+                  command=self.atualizar_historico).pack(side='left', padx=5)
+        
+        # Atualizar histórico
+        self.atualizar_historico()
     
     # Métodos para Apostas Hot
     def auto_carregar_apostas_hot(self):
@@ -3864,11 +4041,15 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
         self.label_odd_total.config(text=f"Odd Total: {odd_total:.2f}")
         self.label_prob_nossa.config(text=f"📊 Prob. Bet Booster: {prob_nossa_combinada:.1f}%")
         self.label_prob_total.config(text=f"🎯 Prob. Bet365: {prob_total_implicita:.1f}%")
+        
+        # Atualizar retorno potencial também
+        self.calcular_retorno_tempo_real()
     
     def limpar_multipla(self):
         """Limpa a múltipla atual"""
         self.apostas_multipla.clear()
         self.atualizar_multipla()
+        self.calcular_retorno_tempo_real()
         messagebox.showinfo("Sucesso", "Múltipla limpa")
     
     def salvar_multipla(self):
@@ -4064,6 +4245,662 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
             print(f"❌ Erro ao carregar dados: {e}")
             self.times_database = {}
     
+    # ==========================================
+    # SISTEMA DE BANCA SIMULADA
+    # ==========================================
+    
+    def carregar_dados_banca(self):
+        """Carrega dados da banca simulada"""
+        try:
+            data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+            
+            # Carregar dados da banca
+            banca_file = os.path.join(data_dir, 'banca_simulada.json')
+            if os.path.exists(banca_file):
+                with open(banca_file, 'r', encoding='utf-8') as f:
+                    self.banca_data = json.load(f)
+            else:
+                self.banca_data = {
+                    'saldo_atual': 0.0,
+                    'total_depositado': 0.0,
+                    'total_ganhos': 0.0,
+                    'total_perdas': 0.0,
+                    'lucro_total': 0.0,
+                    'created_at': datetime.now().isoformat()
+                }
+            
+            # Carregar apostas ativas
+            apostas_ativas_file = os.path.join(data_dir, 'apostas_ativas.json')
+            if os.path.exists(apostas_ativas_file):
+                with open(apostas_ativas_file, 'r', encoding='utf-8') as f:
+                    self.apostas_ativas = json.load(f)
+            else:
+                self.apostas_ativas = []
+            
+            # Carregar histórico
+            historico_file = os.path.join(data_dir, 'historico_apostas.json')
+            if os.path.exists(historico_file):
+                with open(historico_file, 'r', encoding='utf-8') as f:
+                    self.historico_apostas = json.load(f)
+            else:
+                self.historico_apostas = []
+                
+            print(f"✅ Banca carregada - Saldo: R$ {self.banca_data['saldo_atual']:.2f}")
+            
+        except Exception as e:
+            print(f"❌ Erro ao carregar dados da banca: {e}")
+            self.banca_data = {
+                'saldo_atual': 0.0,
+                'total_depositado': 0.0,
+                'total_ganhos': 0.0,
+                'total_perdas': 0.0,
+                'lucro_total': 0.0,
+                'created_at': datetime.now().isoformat()
+            }
+            self.apostas_ativas = []
+            self.historico_apostas = []
+    
+    def salvar_dados_banca(self):
+        """Salva dados da banca simulada"""
+        try:
+            data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+            
+            # Salvar dados da banca
+            banca_file = os.path.join(data_dir, 'banca_simulada.json')
+            with open(banca_file, 'w', encoding='utf-8') as f:
+                json.dump(self.banca_data, f, indent=2, ensure_ascii=False)
+            
+            # Salvar apostas ativas
+            apostas_ativas_file = os.path.join(data_dir, 'apostas_ativas.json')
+            with open(apostas_ativas_file, 'w', encoding='utf-8') as f:
+                json.dump(self.apostas_ativas, f, indent=2, ensure_ascii=False)
+            
+            # Salvar histórico
+            historico_file = os.path.join(data_dir, 'historico_apostas.json')
+            with open(historico_file, 'w', encoding='utf-8') as f:
+                json.dump(self.historico_apostas, f, indent=2, ensure_ascii=False)
+                
+        except Exception as e:
+            print(f"❌ Erro ao salvar dados da banca: {e}")
+    
+    def adicionar_saldo(self, valor):
+        """Adiciona saldo à banca simulada"""
+        try:
+            valor = float(valor)
+            if valor <= 0:
+                return False, "Valor deve ser maior que zero"
+            
+            self.banca_data['saldo_atual'] += valor
+            self.banca_data['total_depositado'] += valor
+            self.salvar_dados_banca()
+            
+            return True, f"R$ {valor:.2f} adicionado à banca"
+            
+        except Exception as e:
+            return False, f"Erro ao adicionar saldo: {str(e)}"
+    
+    def criar_aposta_multipla(self, valor_aposta):
+        """Cria uma nova aposta múltipla"""
+        try:
+            valor_aposta = float(valor_aposta)
+            
+            if valor_aposta <= 0:
+                return False, "Valor da aposta deve ser maior que zero"
+            
+            if valor_aposta > self.banca_data['saldo_atual']:
+                return False, "Saldo insuficiente"
+            
+            if not self.apostas_multipla:
+                return False, "Adicione pelo menos uma aposta à múltipla"
+            
+            # Calcular odd total
+            odd_total = 1.0
+            for aposta in self.apostas_multipla:
+                odd_total *= aposta['odd']
+            
+            # Criar ID único da aposta
+            aposta_id = f"APT_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(self.apostas_ativas) + 1}"
+            
+            # Criar estrutura da aposta
+            nova_aposta = {
+                'id': aposta_id,
+                'valor_apostado': valor_aposta,
+                'odd_total': odd_total,
+                'retorno_potencial': valor_aposta * odd_total,
+                'jogos': [],
+                'status': 'ativa',
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Copiar jogos da múltipla
+            for aposta in self.apostas_multipla:
+                jogo_info = {
+                    'jogo': aposta['jogo'],
+                    'aposta': aposta['aposta'],
+                    'odd': aposta['odd'],
+                    'resultado': 'pendente',  # pendente, green, red
+                    'data_resultado': None
+                }
+                nova_aposta['jogos'].append(jogo_info)
+            
+            # Debitar da banca
+            self.banca_data['saldo_atual'] -= valor_aposta
+            
+            # Adicionar às apostas ativas
+            self.apostas_ativas.append(nova_aposta)
+            
+            # Limpar múltipla atual
+            self.apostas_multipla.clear()
+            
+            # Salvar dados
+            self.salvar_dados_banca()
+            
+            return True, f"Aposta criada! ID: {aposta_id}"
+            
+        except Exception as e:
+            return False, f"Erro ao criar aposta: {str(e)}"
+    
+    def marcar_resultado_jogo(self, aposta_id, jogo_index, resultado):
+        """Marca resultado de um jogo (green/red)"""
+        try:
+            # Encontrar a aposta
+            aposta = None
+            for apt in self.apostas_ativas:
+                if apt['id'] == aposta_id:
+                    aposta = apt
+                    break
+            
+            if not aposta:
+                return False, "Aposta não encontrada"
+            
+            if aposta['status'] != 'ativa':
+                return False, "Aposta não está ativa"
+            
+            if jogo_index < 0 or jogo_index >= len(aposta['jogos']):
+                return False, "Jogo não encontrado"
+            
+            # Marcar resultado
+            aposta['jogos'][jogo_index]['resultado'] = resultado
+            aposta['jogos'][jogo_index]['data_resultado'] = datetime.now().isoformat()
+            aposta['updated_at'] = datetime.now().isoformat()
+            
+            # Verificar se todos os jogos foram marcados
+            jogos_pendentes = [j for j in aposta['jogos'] if j['resultado'] == 'pendente']
+            jogos_green = [j for j in aposta['jogos'] if j['resultado'] == 'green']
+            jogos_red = [j for j in aposta['jogos'] if j['resultado'] == 'red']
+            
+            # Se algum jogo deu red, a aposta toda é red
+            if jogos_red:
+                aposta['status'] = 'perdida'
+                self.banca_data['total_perdas'] += aposta['valor_apostado']
+                self.banca_data['lucro_total'] -= aposta['valor_apostado']
+                
+                # Mover para histórico
+                self.mover_aposta_para_historico(aposta)
+                return True, "Aposta perdida (RED)"
+            
+            # Se todos os jogos deram green, a aposta é vencedora
+            elif not jogos_pendentes and len(jogos_green) == len(aposta['jogos']):
+                aposta['status'] = 'ganha'
+                retorno = aposta['retorno_potencial']
+                self.banca_data['saldo_atual'] += retorno
+                self.banca_data['total_ganhos'] += retorno
+                self.banca_data['lucro_total'] += (retorno - aposta['valor_apostado'])
+                
+                # Mover para histórico
+                self.mover_aposta_para_historico(aposta)
+                return True, f"Aposta ganha! Retorno: R$ {retorno:.2f}"
+            
+            # Ainda tem jogos pendentes
+            else:
+                self.salvar_dados_banca()
+                return True, f"Resultado marcado. Restam {len(jogos_pendentes)} jogos"
+            
+        except Exception as e:
+            return False, f"Erro ao marcar resultado: {str(e)}"
+    
+    def fazer_cashout(self, aposta_id):
+        """Realiza cashout da aposta"""
+        try:
+            # Encontrar a aposta
+            aposta = None
+            aposta_index = None
+            for i, apt in enumerate(self.apostas_ativas):
+                if apt['id'] == aposta_id:
+                    aposta = apt
+                    aposta_index = i
+                    break
+            
+            if not aposta:
+                return False, "Aposta não encontrada"
+            
+            if aposta['status'] != 'ativa':
+                return False, "Aposta não está ativa"
+            
+            # Verificar quantos jogos já foram marcados como green
+            jogos_green = [j for j in aposta['jogos'] if j['resultado'] == 'green']
+            jogos_red = [j for j in aposta['jogos'] if j['resultado'] == 'red']
+            jogos_pendentes = [j for j in aposta['jogos'] if j['resultado'] == 'pendente']
+            
+            # Se tem algum red, não pode fazer cashout
+            if jogos_red:
+                return False, "Não é possível fazer cashout: há jogos perdidos"
+            
+            # Se não tem nenhum green, devolve o valor integral
+            if not jogos_green:
+                valor_cashout = aposta['valor_apostado']
+                self.banca_data['saldo_atual'] += valor_cashout
+                
+                aposta['status'] = 'cashout'
+                aposta['valor_cashout'] = valor_cashout
+                
+                # Mover para histórico
+                self.mover_aposta_para_historico(aposta)
+                
+                return True, f"Cashout realizado: R$ {valor_cashout:.2f} (valor integral)"
+            
+            # Calcular cashout proporcional aos jogos que deram green
+            total_jogos = len(aposta['jogos'])
+            jogos_green_count = len(jogos_green)
+            jogos_pendentes_count = len(jogos_pendentes)
+            
+            # Odd dos jogos que deram green
+            odd_green = 1.0
+            for jogo in jogos_green:
+                odd_green *= jogo['odd']
+            
+            # Valor proporcional baseado nos jogos que já deram green
+            # Fórmula: valor_apostado * odd_dos_greens * fator_de_desconto
+            fator_desconto = 0.85  # 15% de desconto para cashout antecipado
+            valor_cashout = aposta['valor_apostado'] * odd_green * fator_desconto
+            
+            self.banca_data['saldo_atual'] += valor_cashout
+            self.banca_data['total_ganhos'] += valor_cashout
+            self.banca_data['lucro_total'] += (valor_cashout - aposta['valor_apostado'])
+            
+            aposta['status'] = 'cashout'
+            aposta['valor_cashout'] = valor_cashout
+            
+            # Mover para histórico
+            self.mover_aposta_para_historico(aposta)
+            
+            return True, f"Cashout realizado: R$ {valor_cashout:.2f} ({jogos_green_count}/{total_jogos} jogos green)"
+            
+        except Exception as e:
+            return False, f"Erro no cashout: {str(e)}"
+    
+    def mover_aposta_para_historico(self, aposta):
+        """Move aposta das ativas para o histórico"""
+        try:
+            # Adicionar ao histórico
+            self.historico_apostas.append(aposta.copy())
+            
+            # Remover das ativas
+            self.apostas_ativas = [apt for apt in self.apostas_ativas if apt['id'] != aposta['id']]
+            
+            # Salvar dados
+            self.salvar_dados_banca()
+            
+        except Exception as e:
+            print(f"❌ Erro ao mover aposta para histórico: {e}")
+    
+    # ==========================================
+    # FUNÇÕES DA INTERFACE BANCA SIMULADA
+    # ==========================================
+    
+    def atualizar_info_banca(self):
+        """Atualiza as informações da banca na interface"""
+        try:
+            if hasattr(self, 'label_saldo'):
+                self.label_saldo.config(text=f"Saldo Atual: R$ {self.banca_data['saldo_atual']:.2f}")
+                self.label_total_depositado.config(text=f"Total Depositado: R$ {self.banca_data['total_depositado']:.2f}")
+                self.label_total_ganhos.config(text=f"Total Ganhos: R$ {self.banca_data['total_ganhos']:.2f}")
+                self.label_total_perdas.config(text=f"Total Perdas: R$ {self.banca_data['total_perdas']:.2f}")
+                
+                # Cor do lucro (verde para positivo, vermelho para negativo)
+                lucro_cor = 'green' if self.banca_data['lucro_total'] >= 0 else 'red'
+                self.label_lucro_total.config(text=f"Lucro Total: R$ {self.banca_data['lucro_total']:.2f}", 
+                                            foreground=lucro_cor)
+        except Exception as e:
+            print(f"❌ Erro ao atualizar info da banca: {e}")
+    
+    def depositar_saldo(self):
+        """Deposita saldo na banca"""
+        try:
+            valor = self.entry_saldo.get().strip()
+            if not valor:
+                messagebox.showwarning("Aviso", "Digite um valor para depositar")
+                return
+            
+            sucesso, mensagem = self.adicionar_saldo(valor)
+            if sucesso:
+                messagebox.showinfo("Sucesso", mensagem)
+                self.entry_saldo.delete(0, tk.END)
+                self.atualizar_info_banca()
+            else:
+                messagebox.showerror("Erro", mensagem)
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao depositar: {str(e)}")
+    
+    def calcular_retorno_tempo_real(self, event=None):
+        """Calcula retorno potencial em tempo real"""
+        try:
+            if not hasattr(self, 'label_retorno_potencial'):
+                return
+                
+            valor = self.entry_valor_aposta.get().strip()
+            if not valor:
+                self.label_retorno_potencial.config(text="Retorno Potencial: R$ 0.00")
+                return
+            
+            valor_float = float(valor)
+            
+            # Calcular odd total
+            odd_total = 1.0
+            for aposta in self.apostas_multipla:
+                odd_total *= aposta['odd']
+            
+            retorno = valor_float * odd_total
+            self.label_retorno_potencial.config(text=f"Retorno Potencial: R$ {retorno:.2f}")
+            
+        except ValueError:
+            self.label_retorno_potencial.config(text="Retorno Potencial: R$ 0.00")
+        except Exception as e:
+            print(f"❌ Erro ao calcular retorno: {e}")
+    
+    def realizar_aposta_multipla(self):
+        """Realiza uma aposta múltipla"""
+        try:
+            valor = self.entry_valor_aposta.get().strip()
+            if not valor:
+                messagebox.showwarning("Aviso", "Digite o valor da aposta")
+                return
+            
+            sucesso, mensagem = self.criar_aposta_multipla(valor)
+            if sucesso:
+                messagebox.showinfo("Sucesso", mensagem)
+                self.entry_valor_aposta.delete(0, tk.END)
+                self.atualizar_multipla()
+                self.atualizar_info_banca()
+                self.atualizar_apostas_ativas()
+                self.calcular_retorno_tempo_real()
+            else:
+                messagebox.showerror("Erro", mensagem)
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao realizar aposta: {str(e)}")
+    
+    def atualizar_apostas_ativas(self):
+        """Atualiza lista de apostas ativas"""
+        try:
+            if not hasattr(self, 'tree_apostas_ativas'):
+                return
+                
+            # Limpar árvore
+            for item in self.tree_apostas_ativas.get_children():
+                self.tree_apostas_ativas.delete(item)
+            
+            # Adicionar apostas ativas
+            for aposta in self.apostas_ativas:
+                jogos_green = len([j for j in aposta['jogos'] if j['resultado'] == 'green'])
+                total_jogos = len(aposta['jogos'])
+                
+                data_created = datetime.fromisoformat(aposta['created_at']).strftime('%d/%m/%Y %H:%M')
+                
+                self.tree_apostas_ativas.insert('', 'end', values=(
+                    aposta['id'],
+                    data_created,
+                    f"R$ {aposta['valor_apostado']:.2f}",
+                    f"{aposta['odd_total']:.2f}",
+                    f"R$ {aposta['retorno_potencial']:.2f}",
+                    aposta['status'].title(),
+                    f"{jogos_green}/{total_jogos}"
+                ), tags=(aposta['id'],))
+                
+        except Exception as e:
+            print(f"❌ Erro ao atualizar apostas ativas: {e}")
+    
+    def ver_detalhes_aposta(self):
+        """Mostra detalhes da aposta selecionada"""
+        try:
+            selected = self.tree_apostas_ativas.selection()
+            if not selected:
+                messagebox.showwarning("Aviso", "Selecione uma aposta")
+                return
+            
+            # Obter ID da aposta
+            aposta_id = self.tree_apostas_ativas.item(selected[0])['tags'][0]
+            
+            # Encontrar aposta
+            aposta = None
+            for apt in self.apostas_ativas:
+                if apt['id'] == aposta_id:
+                    aposta = apt
+                    break
+            
+            if not aposta:
+                messagebox.showerror("Erro", "Aposta não encontrada")
+                return
+            
+            # Criar janela de detalhes
+            self.mostrar_janela_detalhes_aposta(aposta)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao ver detalhes: {str(e)}")
+    
+    def mostrar_janela_detalhes_aposta(self, aposta):
+        """Mostra janela com detalhes da aposta"""
+        janela = tk.Toplevel(self.root)
+        janela.title(f"Detalhes da Aposta - {aposta['id']}")
+        janela.geometry("700x600")
+        janela.transient(self.root)
+        janela.grab_set()
+        
+        # Informações gerais
+        info_frame = ttk.LabelFrame(janela, text="Informações da Aposta", padding=15)
+        info_frame.pack(fill='x', padx=20, pady=10)
+        
+        data_created = datetime.fromisoformat(aposta['created_at']).strftime('%d/%m/%Y %H:%M:%S')
+        
+        info_text = f"""
+ID: {aposta['id']}
+Data de Criação: {data_created}
+Valor Apostado: R$ {aposta['valor_apostado']:.2f}
+Odd Total: {aposta['odd_total']:.2f}
+Retorno Potencial: R$ {aposta['retorno_potencial']:.2f}
+Status: {aposta['status'].title()}
+        """
+        
+        ttk.Label(info_frame, text=info_text.strip(), justify='left').pack(anchor='w')
+        
+        # Lista de jogos
+        jogos_frame = ttk.LabelFrame(janela, text="Jogos da Aposta", padding=15)
+        jogos_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Treeview para jogos
+        columns_jogos = ('Jogo', 'Aposta', 'Odd', 'Resultado', 'Data Resultado')
+        tree_jogos = ttk.Treeview(jogos_frame, columns=columns_jogos, show='headings', height=8)
+        
+        for col in columns_jogos:
+            tree_jogos.heading(col, text=col)
+            if col == 'Jogo':
+                tree_jogos.column(col, width=200)
+            elif col == 'Aposta':
+                tree_jogos.column(col, width=120)
+            else:
+                tree_jogos.column(col, width=80)
+        
+        tree_jogos.pack(fill='both', expand=True)
+        
+        # Preencher jogos
+        for i, jogo in enumerate(aposta['jogos']):
+            resultado_text = jogo['resultado'].upper()
+            if resultado_text == 'PENDENTE':
+                resultado_text = '⏳ PENDENTE'
+            elif resultado_text == 'GREEN':
+                resultado_text = '🟢 GREEN'
+            elif resultado_text == 'RED':
+                resultado_text = '🔴 RED'
+            
+            data_resultado = ''
+            if jogo['data_resultado']:
+                data_resultado = datetime.fromisoformat(jogo['data_resultado']).strftime('%d/%m %H:%M')
+            
+            tree_jogos.insert('', 'end', values=(
+                jogo['jogo'],
+                jogo['aposta'],
+                f"{jogo['odd']:.2f}",
+                resultado_text,
+                data_resultado
+            ), tags=(str(i),))
+        
+        # Botões de ação
+        acoes_frame = ttk.Frame(jogos_frame)
+        acoes_frame.pack(fill='x', pady=10)
+        
+        if aposta['status'] == 'ativa':
+            ttk.Button(acoes_frame, text="🟢 Marcar GREEN", 
+                      command=lambda: self.marcar_jogo_resultado('green', aposta, tree_jogos, janela)).pack(side='left', padx=5)
+            ttk.Button(acoes_frame, text="🔴 Marcar RED", 
+                      command=lambda: self.marcar_jogo_resultado('red', aposta, tree_jogos, janela)).pack(side='left', padx=5)
+        
+        ttk.Button(acoes_frame, text="Fechar", command=janela.destroy).pack(side='right', padx=5)
+    
+    def marcar_jogo_resultado(self, resultado, aposta, tree_jogos, janela):
+        """Marca resultado de um jogo específico"""
+        try:
+            selected = tree_jogos.selection()
+            if not selected:
+                messagebox.showwarning("Aviso", "Selecione um jogo")
+                return
+            
+            jogo_index = int(tree_jogos.item(selected[0])['tags'][0])
+            
+            sucesso, mensagem = self.marcar_resultado_jogo(aposta['id'], jogo_index, resultado)
+            
+            if sucesso:
+                messagebox.showinfo("Sucesso", mensagem)
+                janela.destroy()
+                self.atualizar_apostas_ativas()
+                self.atualizar_info_banca()
+                self.atualizar_historico()
+            else:
+                messagebox.showerror("Erro", mensagem)
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao marcar resultado: {str(e)}")
+    
+    def fazer_cashout_aposta(self):
+        """Faz cashout da aposta selecionada"""
+        try:
+            selected = self.tree_apostas_ativas.selection()
+            if not selected:
+                messagebox.showwarning("Aviso", "Selecione uma aposta")
+                return
+            
+            aposta_id = self.tree_apostas_ativas.item(selected[0])['tags'][0]
+            
+            resposta = messagebox.askyesno("Confirmação", 
+                                         "Deseja fazer o cashout desta aposta?\n\n"
+                                         "Atenção: Cashout antecipado tem desconto de 15%")
+            if not resposta:
+                return
+            
+            sucesso, mensagem = self.fazer_cashout(aposta_id)
+            
+            if sucesso:
+                messagebox.showinfo("Sucesso", mensagem)
+                self.atualizar_apostas_ativas()
+                self.atualizar_info_banca()
+                self.atualizar_historico()
+            else:
+                messagebox.showerror("Erro", mensagem)
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro no cashout: {str(e)}")
+    
+    def atualizar_historico(self):
+        """Atualiza lista do histórico"""
+        try:
+            if not hasattr(self, 'tree_historico'):
+                return
+                
+            # Limpar árvore
+            for item in self.tree_historico.get_children():
+                self.tree_historico.delete(item)
+            
+            # Adicionar histórico (mais recentes primeiro)
+            for aposta in reversed(self.historico_apostas):
+                data_created = datetime.fromisoformat(aposta['created_at']).strftime('%d/%m/%Y')
+                
+                # Calcular resultado
+                if aposta['status'] == 'ganha':
+                    resultado = "🟢 GANHA"
+                    retorno = aposta['retorno_potencial']
+                    lucro_perda = retorno - aposta['valor_apostado']
+                elif aposta['status'] == 'perdida':
+                    resultado = "🔴 PERDIDA"
+                    retorno = 0.0
+                    lucro_perda = -aposta['valor_apostado']
+                elif aposta['status'] == 'cashout':
+                    resultado = "💰 CASHOUT"
+                    retorno = aposta.get('valor_cashout', 0)
+                    lucro_perda = retorno - aposta['valor_apostado']
+                else:
+                    resultado = aposta['status'].upper()
+                    retorno = 0.0
+                    lucro_perda = 0.0
+                
+                # Cor do lucro/perda
+                cor = 'green' if lucro_perda >= 0 else 'red'
+                
+                self.tree_historico.insert('', 'end', values=(
+                    aposta['id'],
+                    data_created,
+                    f"R$ {aposta['valor_apostado']:.2f}",
+                    f"{aposta['odd_total']:.2f}",
+                    resultado,
+                    f"R$ {retorno:.2f}",
+                    f"R$ {lucro_perda:.2f}"
+                ), tags=(aposta['id'], cor))
+            
+            # Configurar cores
+            self.tree_historico.tag_configure('green', foreground='green')
+            self.tree_historico.tag_configure('red', foreground='red')
+                
+        except Exception as e:
+            print(f"❌ Erro ao atualizar histórico: {e}")
+    
+    def ver_detalhes_historico(self):
+        """Mostra detalhes da aposta do histórico"""
+        try:
+            selected = self.tree_historico.selection()
+            if not selected:
+                messagebox.showwarning("Aviso", "Selecione uma aposta do histórico")
+                return
+            
+            aposta_id = self.tree_historico.item(selected[0])['tags'][0]
+            
+            # Encontrar aposta no histórico
+            aposta = None
+            for apt in self.historico_apostas:
+                if apt['id'] == aposta_id:
+                    aposta = apt
+                    break
+            
+            if not aposta:
+                messagebox.showerror("Erro", "Aposta não encontrada no histórico")
+                return
+            
+            self.mostrar_janela_detalhes_aposta(aposta)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao ver detalhes: {str(e)}")
+    
     def pos_carregamento_inicial(self):
         """Executa após carregamento inicial dos dados"""
         try:
@@ -4086,6 +4923,10 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
             
             with open(database_path, 'w', encoding='utf-8') as f:
                 json.dump(self.times_database, f, ensure_ascii=False, indent=2)
+                
+            # Salvar também os dados da banca
+            self.salvar_dados_banca()
+            
             print(f"💾 Database salvo: {len(self.times_database)} times")
         except Exception as e:
             print(f"❌ Erro ao salvar dados: {e}")
