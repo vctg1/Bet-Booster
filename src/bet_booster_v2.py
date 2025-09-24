@@ -2325,6 +2325,86 @@ class BetBoosterV2:
         
         return ' '.join(forma_formatada)
     
+    def converter_forma_recente_para_vde(self, forma_lista):
+        """
+        Converte lista de forma recente da API (Win/Draw/Loss) para formato V/E/D
+        e inverte a ordem para mostrar do mais antigo para o mais recente
+        
+        Args:
+            forma_lista: Lista de resultados da API
+        
+        Returns:
+            list: Lista de resultados convertidos [V, E, D]
+        """
+        if not forma_lista:
+            return []
+        
+        # Mapeamento da API para nosso formato
+        conversao = {
+            'Win': 'V',    # Vitória
+            'Draw': 'E',   # Empate  
+            'Loss': 'D',   # Derrota
+            'W': 'V',      # Alternativo para Win
+            'D': 'E',      # Alternativo para Draw (assumindo Draw)
+            'L': 'D'       # Alternativo para Loss
+        }
+        
+        # Converter resultados
+        resultados_convertidos = []
+        for resultado in forma_lista:
+            resultado_str = str(resultado).strip()
+            if resultado_str in conversao:
+                resultados_convertidos.append(conversao[resultado_str])
+            else:
+                # Se não reconhecer o formato, tentar primeira letra
+                primeira_letra = resultado_str[0].upper() if resultado_str else '?'
+                if primeira_letra in ['W']:
+                    resultados_convertidos.append('V')
+                elif primeira_letra in ['D']:
+                    # Para 'D', assumir que é Draw (Empate) se vier da API
+                    # A menos que seja especificamente "Defeat" ou "Loss"
+                    if 'raw' in resultado_str.lower():
+                        resultados_convertidos.append('E')  # Draw = Empate
+                    else:
+                        resultados_convertidos.append('E')  # Assume Draw por padrão para 'D'
+                elif primeira_letra in ['L']:
+                    resultados_convertidos.append('D')  # Loss = Derrota
+                elif primeira_letra in ['V']:
+                    resultados_convertidos.append('V')  # Vitória
+                elif primeira_letra in ['E']:
+                    resultados_convertidos.append('E')  # Empate
+                else:
+                    resultados_convertidos.append('?')  # Desconhecido
+        
+        # Inverter ordem (API retorna mais recentes primeiro, queremos mais antigos primeiro)
+        return resultados_convertidos[::-1]
+    
+    def formatar_forma_visual(self, forma_vde, nome_time):
+        """
+        Formata a forma recente com indicação de cores para exibição visual
+        
+        Args:
+            forma_vde: Lista de resultados [V, E, D]
+            nome_time: Nome do time
+        
+        Returns:
+            str: String formatada para exibição
+        """
+        if not forma_vde:
+            return f"Últimos 5 {nome_time}: N/A"
+        
+        # Pegar apenas os últimos 5 resultados
+        ultimos_5 = forma_vde[-5:] if len(forma_vde) >= 5 else forma_vde
+        
+        # Completar com espaços se não tiver 5 resultados
+        while len(ultimos_5) < 5:
+            ultimos_5.insert(0, '-')
+        
+        # Adicionar espaços entre as letras para melhor visualização
+        forma_formatada = " ".join(ultimos_5)
+        
+        return f"Últimos 5 {nome_time}: {forma_formatada}"
+    
     def create_multiplas_tab(self):
         """Nova aba: Gestão de Múltiplas"""
         self.tab_multiplas = ttk.Frame(self.notebook)
@@ -2672,13 +2752,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if prob_impl >= 50 and prob_calc >= 50:
+                    if odd <=2 and prob_calc >= 45:
                         tipo_recomendacao = "FORTE"
-                    elif prob_impl >= 40 and prob_calc >= 50:
+                    elif odd <=3 and prob_calc >= 50 or (odd <=2 and prob_calc >= 40):
                         tipo_recomendacao = "MODERADA"
-                    elif (prob_impl >= 30 and prob_calc >= 50) or (prob_impl >= 40 and value_percent >= 0):
+                    elif (odd <=4 and prob_calc >= 55) or (odd <=3 and prob_calc >= 45):
                         tipo_recomendacao = "ARRISCADA"
-                    elif prob_impl >= 20 and prob_calc >= 60 or (prob_impl >= 30 and value_percent >= 0):
+                    elif (odd <=5 and prob_calc >= 60) or (odd <=4 and prob_calc >= 50):
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -2747,12 +2827,10 @@ class BetBoosterV2:
                     
                     if prob_impl >= 60 and prob_calc >= 60:
                         tipo_recomendacao = "FORTE"
-                    elif prob_impl >= 50 and prob_calc >= 60:
+                    elif (prob_impl >= 50 and prob_calc >= 60) or (prob_impl >= 60 and prob_calc >= 50):
                         tipo_recomendacao = "MODERADA"
-                    elif (prob_impl >= 40 and prob_calc >= 60) or (prob_impl >= 50 and value_percent >= 0):
-                        tipo_recomendacao = "ARRISCADA"
-                    elif prob_impl >= 30 and prob_calc >= 60 or (prob_impl >= 40 and value_percent >= 0):
-                        tipo_recomendacao = "MUITO_ARRISCADA"
+                    else:
+                        tipo_recomendacao = None
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
                         
@@ -3515,6 +3593,16 @@ Menos de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_tota
                 casa = stats['time_casa']['nome']
                 visitante = stats['time_visitante']['nome']
             
+            # Converter e formatar forma recente
+            forma_casa_raw = stats.get('time_casa', {}).get('geral', {}).get('forma', [])
+            forma_visitante_raw = stats.get('time_visitante', {}).get('geral', {}).get('forma', [])
+            
+            forma_casa_vde = self.converter_forma_recente_para_vde(forma_casa_raw)
+            forma_visitante_vde = self.converter_forma_recente_para_vde(forma_visitante_raw)
+            
+            forma_casa_formatada = self.formatar_forma_visual(forma_casa_vde, casa)
+            forma_visitante_formatada = self.formatar_forma_visual(forma_visitante_vde, visitante)
+            
             # Formatar resultado completo
             resultado = f"""
 🎲 ANÁLISE COMPLETA - {aposta['periodo']}
@@ -3533,7 +3621,13 @@ Menos de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_tota
 ✈️ {visitante}: {probabilidades['gols_esperados_visitante']:.2f}
 🎯 Total: {probabilidades['gols_esperados_total']:.2f}
 
-📈 MERCADOS DE GOLS:
+� FORMA RECENTE:
+{forma_casa_formatada}
+{forma_visitante_formatada}
+
+Legenda: V = Vitória (Verde) | E = Empate (Cinza) | D = Derrota (Vermelho)
+
+�📈 MERCADOS DE GOLS:
 Mais de 1.5: {probabilidades['over_15']:.1f}%
 Menos de 1.5: {probabilidades['under_15']:.1f}%
 Mais de 2.5: {probabilidades['over_25']:.1f}%
@@ -3549,10 +3643,187 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
 🎯 Tipo: {aposta['tipo'].replace('_', ' ')}
 """
             
-            messagebox.showinfo(f"Análise Completa - {aposta['aposta']}", resultado)
+            # Criar janela customizada para mostrar as informações com cores
+            self.mostrar_analise_completa_personalizada(aposta, casa, visitante, probabilidades, 
+                                                       forma_casa_vde, forma_visitante_vde, resultado)
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao gerar análise completa: {str(e)}")
+    
+    def mostrar_analise_completa_personalizada(self, aposta, casa, visitante, probabilidades, 
+                                             forma_casa_vde, forma_visitante_vde, resultado_texto):
+        """
+        Mostra análise completa em janela personalizada com cores para as últimas partidas
+        """
+        try:
+            # Criar janela
+            janela = tk.Toplevel(self.root)
+            janela.title(f"Análise Completa - {aposta['aposta']}")
+            janela.geometry("600x700")
+            janela.configure(bg='white')
+            
+            # Frame principal com scroll
+            main_frame = tk.Frame(janela, bg='white')
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+            
+            # Título
+            titulo = tk.Label(main_frame, text=f"🎲 ANÁLISE COMPLETA - {aposta['periodo']}", 
+                             font=('Arial', 16, 'bold'), bg='white', fg='#1e40af')
+            titulo.pack(pady=(0, 20))
+            
+            # Informações do jogo
+            info_jogo = tk.Label(main_frame, 
+                               text=f"🏠 {casa} vs ✈️ {visitante}\n🏆 {aposta['liga']} | ⏰ {aposta['horario']}", 
+                               font=('Arial', 12), bg='white', fg='#374151')
+            info_jogo.pack(pady=(0, 20))
+            
+            # Probabilidades
+            prob_frame = tk.LabelFrame(main_frame, text="📊 PROBABILIDADES", 
+                                     font=('Arial', 12, 'bold'), bg='white')
+            prob_frame.pack(fill='x', pady=(0, 15))
+            
+            tk.Label(prob_frame, 
+                    text=f"🏠 Vitória {casa}: {probabilidades['vitoria_casa']:.1f}%\n" +
+                         f"🤝 Empate: {probabilidades['empate']:.1f}%\n" +
+                         f"✈️ Vitória {visitante}: {probabilidades['vitoria_visitante']:.1f}%", 
+                    font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
+            
+            # Gols Esperados
+            gols_frame = tk.LabelFrame(main_frame, text="⚽ GOLS ESPERADOS", 
+                                     font=('Arial', 12, 'bold'), bg='white')
+            gols_frame.pack(fill='x', pady=(0, 15))
+            
+            tk.Label(gols_frame, 
+                    text=f"🏠 {casa}: {probabilidades['gols_esperados_casa']:.2f}\n" +
+                         f"✈️ {visitante}: {probabilidades['gols_esperados_visitante']:.2f}\n" +
+                         f"🎯 Total: {probabilidades['gols_esperados_total']:.2f}", 
+                    font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
+            
+            # Forma Recente com cores
+            forma_frame = tk.LabelFrame(main_frame, text="📊 FORMA RECENTE (Últimos 5 Jogos)", 
+                                      font=('Arial', 12, 'bold'), bg='white')
+            forma_frame.pack(fill='x', pady=(0, 15))
+            
+            # Time casa
+            casa_frame = tk.Frame(forma_frame, bg='white')
+            casa_frame.pack(fill='x', padx=10, pady=5)
+            
+            tk.Label(casa_frame, text=f"🏠 {casa}: ", font=('Arial', 10, 'bold'), 
+                    bg='white', fg='#374151').pack(side='left')
+            
+            # Adicionar quadrados coloridos para o time da casa
+            self.adicionar_quadrados_forma(casa_frame, forma_casa_vde)
+            
+            # Time visitante  
+            visit_frame = tk.Frame(forma_frame, bg='white')
+            visit_frame.pack(fill='x', padx=10, pady=5)
+            
+            tk.Label(visit_frame, text=f"✈️ {visitante}: ", font=('Arial', 10, 'bold'), 
+                    bg='white', fg='#374151').pack(side='left')
+            
+            # Adicionar quadrados coloridos para o time visitante
+            self.adicionar_quadrados_forma(visit_frame, forma_visitante_vde)
+            
+            # Legenda
+            legenda_frame = tk.Frame(forma_frame, bg='white')
+            legenda_frame.pack(fill='x', padx=10, pady=5)
+            
+            tk.Label(legenda_frame, text="Legenda: ", font=('Arial', 9), 
+                    bg='white', fg='#6b7280').pack(side='left')
+            
+            # Quadrado V (Verde)
+            v_frame = tk.Frame(legenda_frame, bg='#10b981', width=15, height=15)
+            v_frame.pack(side='left', padx=2)
+            v_frame.pack_propagate(False)
+            tk.Label(v_frame, text="V", font=('Arial', 8, 'bold'), 
+                    bg='#10b981', fg='black').pack()
+            
+            tk.Label(legenda_frame, text=" = Vitória  ", font=('Arial', 9), 
+                    bg='white', fg='#6b7280').pack(side='left')
+            
+            # Quadrado E (Cinza)
+            e_frame = tk.Frame(legenda_frame, bg='#6b7280', width=15, height=15)
+            e_frame.pack(side='left', padx=2)
+            e_frame.pack_propagate(False)
+            tk.Label(e_frame, text="E", font=('Arial', 8, 'bold'), 
+                    bg='#6b7280', fg='black').pack()
+            
+            tk.Label(legenda_frame, text=" = Empate  ", font=('Arial', 9), 
+                    bg='white', fg='#6b7280').pack(side='left')
+            
+            # Quadrado D (Vermelho)
+            d_frame = tk.Frame(legenda_frame, bg='#ef4444', width=15, height=15)
+            d_frame.pack(side='left', padx=2)
+            d_frame.pack_propagate(False)
+            tk.Label(d_frame, text="D", font=('Arial', 8, 'bold'), 
+                    bg='#ef4444', fg='black').pack()
+            
+            tk.Label(legenda_frame, text=" = Derrota", font=('Arial', 9), 
+                    bg='white', fg='#6b7280').pack(side='left')
+            
+            # Mercados de Gols
+            mercados_frame = tk.LabelFrame(main_frame, text="📈 MERCADOS DE GOLS", 
+                                         font=('Arial', 12, 'bold'), bg='white')
+            mercados_frame.pack(fill='x', pady=(0, 15))
+            
+            tk.Label(mercados_frame, 
+                    text=f"Mais de 1.5: {probabilidades['over_15']:.1f}%  |  Menos de 1.5: {probabilidades['under_15']:.1f}%\n" +
+                         f"Mais de 2.5: {probabilidades['over_25']:.1f}%  |  Menos de 2.5: {probabilidades['under_25']:.1f}%\n" +
+                         f"Mais de 3.5: {probabilidades['over_35']:.1f}%  |  Menos de 3.5: {probabilidades['under_35']:.1f}%", 
+                    font=('Arial', 10), bg='white', justify='center').pack(padx=10, pady=5)
+            
+            # Aposta Recomendada
+            aposta_frame = tk.LabelFrame(main_frame, text="💰 APOSTA RECOMENDADA", 
+                                       font=('Arial', 12, 'bold'), bg='white')
+            aposta_frame.pack(fill='x', pady=(0, 15))
+            
+            tk.Label(aposta_frame, 
+                    text=f"{aposta['aposta']} (Odd: {aposta['odd']:.2f})\n" +
+                         f"📊 Prob. Bet Booster: {aposta['nossa_prob']:.1f}%\n" +
+                         f"📈 Prob. Bet365: {aposta['prob_implicita']:.1f}%\n" +
+                         f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%\n" +
+                         f"🎯 Tipo: {aposta['tipo'].replace('_', ' ')}", 
+                    font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
+            
+            # Botão fechar
+            tk.Button(main_frame, text="Fechar", command=janela.destroy, 
+                     font=('Arial', 12), bg='#ef4444', fg='white', 
+                     padx=20, pady=5).pack(pady=20)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao criar janela personalizada: {str(e)}")
+    
+    def adicionar_quadrados_forma(self, parent_frame, forma_vde):
+        """
+        Adiciona quadrados coloridos para representar a forma recente
+        """
+        # Pegar últimos 5 resultados
+        ultimos_5 = forma_vde[-5:] if len(forma_vde) >= 5 else forma_vde
+        
+        # Completar com espaços se não tiver 5 resultados
+        while len(ultimos_5) < 5:
+            ultimos_5.insert(0, '-')
+        
+        # Cores para cada resultado
+        cores = {
+            'V': '#10b981',  # Verde
+            'E': '#6b7280',  # Cinza
+            'D': '#ef4444',  # Vermelho
+            '-': '#e5e7eb'   # Cinza claro para dados faltantes
+        }
+        
+        for resultado in ultimos_5:
+            cor = cores.get(resultado, '#e5e7eb')
+            
+            # Criar frame para o quadrado
+            quad_frame = tk.Frame(parent_frame, bg=cor, width=20, height=20)
+            quad_frame.pack(side='left', padx=2)
+            quad_frame.pack_propagate(False)
+            
+            # Adicionar texto
+            texto = resultado if resultado != '-' else ''
+            tk.Label(quad_frame, text=texto, font=('Arial', 8, 'bold'), 
+                    bg=cor, fg='black').pack()
     
     def atualizar_multipla(self):
         """Atualiza a visualização da múltipla"""
