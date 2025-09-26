@@ -3521,7 +3521,7 @@ class BetBoosterV2:
             print(f"Erro ao selecionar jogo: {e}")
     
     def calcular_prob_jogo_selecionado(self):
-        """Calcula probabilidades do jogo selecionado"""
+        """Calcula probabilidades do jogo selecionado com análise completa"""
         if not hasattr(self, 'jogo_selecionado_index') or self.jogo_selecionado_index is None:
             messagebox.showwarning("Aviso", "Selecione um jogo primeiro.\n\nClique em um jogo da lista ou use duplo clique para selecioná-lo.")
             return
@@ -3544,34 +3544,35 @@ class BetBoosterV2:
             # Calcular probabilidades
             probabilidades = self.calcular_probabilidades_completas(stats, self.modo_analise.get())
             
-            # Exibir resultado
+            # Extrair nomes dos times
             casa = jogo.get('home_team', jogo.get('time_casa', ''))
             visitante = jogo.get('away_team', jogo.get('time_visitante', ''))
             
-            resultado = f"""
-🎲 PROBABILIDADES CALCULADAS
-═══════════════════════════════════════
-
-🏠 {casa} vs ✈️ {visitante}
-
-📊 RESULTADOS:
-🏠 Vitória {casa}: {probabilidades['vitoria_casa']:.1f}%
-🤝 Empate: {probabilidades['empate']:.1f}%
-✈️ Vitória {visitante}: {probabilidades['vitoria_visitante']:.1f}%
-
-⚽ GOLS ESPERADOS:
-🏠 {casa}: {probabilidades['gols_esperados_casa']:.2f}
-✈️ {visitante}: {probabilidades['gols_esperados_visitante']:.2f}
-🎯 Total: {probabilidades['gols_esperados_total']:.2f}
-
-📈 MERCADOS DE GOLS:
-Mais de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'over'):.1f}%
-Menos de 2.5: {self.calcular_prob_over_under(probabilidades['gols_esperados_total'], 2.5, 'under'):.1f}%
-
-🎯 Modo de Análise: {self.modo_analise.get()}
-"""
+            # Converter e formatar forma recente (igual à análise completa das apostas hot)
+            forma_casa_raw = stats.get('time_casa', {}).get('geral', {}).get('forma', [])
+            forma_visitante_raw = stats.get('time_visitante', {}).get('geral', {}).get('forma', [])
             
-            messagebox.showinfo("Probabilidades Calculadas", resultado)
+            forma_casa_vde = self.converter_forma_recente_para_vde(forma_casa_raw)
+            forma_visitante_vde = self.converter_forma_recente_para_vde(forma_visitante_raw)
+            
+            # Criar objeto aposta simulado para usar a mesma função de análise completa
+            aposta_simulada = {
+                'jogo': f"{casa} vs {visitante}",
+                'aposta': "Análise Completa",
+                'odd': 0.0,
+                'nossa_prob': 0.0,
+                'prob_implicita': 0.0,
+                'value': 1.0,
+                'tipo': 'analise_jogos_do_dia',
+                'periodo': jogo.get('date', 'Hoje'),
+                'liga': jogo.get('league_name', 'Liga não informada'),
+                'horario': jogo.get('time', 'Horário não informado'),
+                'match_id': jogo_id
+            }
+            
+            # Usar a mesma função de análise completa personalizada das apostas hot
+            self.mostrar_analise_completa_personalizada(aposta_simulada, casa, visitante, probabilidades, 
+                                                       forma_casa_vde, forma_visitante_vde, "")
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao calcular probabilidades:\n{str(e)}")
@@ -3949,18 +3950,30 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
                          f"Mais de 3.5: {probabilidades['over_35']:.1f}%  |  Menos de 3.5: {probabilidades['under_35']:.1f}%", 
                     font=('Arial', 10), bg='white', justify='center').pack(padx=10, pady=5)
             
-            # Aposta Recomendada
-            aposta_frame = tk.LabelFrame(main_frame, text="💰 APOSTA RECOMENDADA", 
-                                       font=('Arial', 12, 'bold'), bg='white')
-            aposta_frame.pack(fill='x', pady=(0, 15))
-            
-            tk.Label(aposta_frame, 
-                    text=f"{aposta['aposta']} (Odd: {aposta['odd']:.2f})\n" +
-                         f"📊 Prob. Bet Booster: {aposta['nossa_prob']:.1f}%\n" +
-                         f"📈 Prob. Bet365: {aposta['prob_implicita']:.1f}%\n" +
-                         f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%\n" +
-                         f"🎯 Tipo: {aposta['tipo'].replace('_', ' ')}", 
-                    font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
+            # Aposta Recomendada (apenas para apostas hot, não para jogos do dia)
+            if aposta.get('tipo') != 'analise_jogos_do_dia':
+                aposta_frame = tk.LabelFrame(main_frame, text="💰 APOSTA RECOMENDADA", 
+                                           font=('Arial', 12, 'bold'), bg='white')
+                aposta_frame.pack(fill='x', pady=(0, 15))
+                
+                tk.Label(aposta_frame, 
+                        text=f"{aposta['aposta']} (Odd: {aposta['odd']:.2f})\n" +
+                             f"📊 Prob. Bet Booster: {aposta['nossa_prob']:.1f}%\n" +
+                             f"📈 Prob. Bet365: {aposta['prob_implicita']:.1f}%\n" +
+                             f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%\n" +
+                             f"🎯 Tipo: {aposta['tipo'].replace('_', ' ')}", 
+                        font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
+            else:
+                # Para jogos do dia, mostrar informações do modo de análise
+                info_frame = tk.LabelFrame(main_frame, text="🎯 INFORMAÇÕES DA ANÁLISE", 
+                                         font=('Arial', 12, 'bold'), bg='white')
+                info_frame.pack(fill='x', pady=(0, 15))
+                
+                tk.Label(info_frame, 
+                        text=f"📊 Modo de Análise: {self.modo_analise.get()}\n" +
+                             f"🎲 Análise completa calculada pelo Bet Booster\n" +
+                             f"📈 Use estas informações para suas apostas", 
+                        font=('Arial', 10), bg='white', justify='left').pack(anchor='w', padx=10, pady=5)
             
             # Botão fechar
             tk.Button(main_frame, text="Fechar", command=janela.destroy, 
