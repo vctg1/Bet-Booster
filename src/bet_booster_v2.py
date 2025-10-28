@@ -37,6 +37,17 @@ class BetBoosterV2:
         # Variáveis de controle
         self.modo_analise = tk.StringVar(value="detalhado")  # Modo padrão
         
+        # Modo Escuro - detectar hora do dia para ativar automaticamente
+        hora_atual = datetime.now().hour
+        # Ativar modo escuro entre 18h e 6h
+        self.modo_escuro = tk.BooleanVar(value=(hora_atual >= 18 or hora_atual < 6))
+        
+        # Definir cores do tema
+        self.atualizar_cores_tema()
+        
+        # Configurar estilos ttk
+        self.configurar_estilos_ttk()
+        
         # API Integration
         self.api = RadarEsportivoAPI()
         
@@ -52,32 +63,194 @@ class BetBoosterV2:
         # Configurar interface (será feito após carregamento)
         self.main_widgets_created = False
     
+    def atualizar_cores_tema(self):
+        """Define as cores baseado no modo escuro ou claro"""
+        if self.modo_escuro.get():
+            # Modo Escuro
+            self.cores = {
+                'bg_principal': '#2b2b2b',        # Cinza escuro principal
+                'bg_secundario': '#3a3a3a',       # Cinza escuro secundário
+                'bg_terciario': '#4a4a4a',        # Cinza médio
+                'bg_frame': '#353535',            # Cinza para frames
+                'bg_card': '#404040',             # Cinza para cards
+                'fg_titulo': '#ffffff',           # Texto títulos
+                'fg_normal': '#e0e0e0',           # Texto normal
+                'fg_secundario': '#b0b0b0',       # Texto secundário
+                'bg_input': '#505050',            # Fundo inputs
+                'fg_input': '#ffffff',            # Texto inputs
+                'bg_button': '#505050',           # Fundo botões
+                'border': '#5a5a5a'               # Bordas
+            }
+        else:
+            # Modo Claro
+            self.cores = {
+                'bg_principal': '#f0f0f0',
+                'bg_secundario': '#ffffff',
+                'bg_terciario': '#f8f9fa',
+                'bg_frame': '#ffffff',
+                'bg_card': '#ffffff',
+                'fg_titulo': '#1e40af',
+                'fg_normal': '#374151',
+                'fg_secundario': '#6b7280',
+                'bg_input': '#ffffff',
+                'fg_input': '#000000',
+                'bg_button': '#ffffff',
+                'border': '#e5e7eb'
+            }
+    
+    def toggle_modo_escuro(self):
+        """Alterna entre modo escuro e claro"""
+        self.modo_escuro.set(not self.modo_escuro.get())
+        self.atualizar_cores_tema()
+        self.configurar_estilos_ttk()
+        self.aplicar_tema_interface()
+    
+    def configurar_estilos_ttk(self):
+        """Configura os estilos dos widgets ttk baseado no tema"""
+        style = ttk.Style()
+        
+        if self.modo_escuro.get():
+            # Configurar tema escuro para ttk
+            style.theme_use('clam')  # Base theme que permite customização
+            
+            # Cores do modo escuro
+            style.configure('.',
+                          background=self.cores['bg_principal'],
+                          foreground=self.cores['fg_normal'],
+                          fieldbackground=self.cores['bg_input'],
+                          bordercolor=self.cores['border'],
+                          darkcolor=self.cores['bg_secundario'],
+                          lightcolor=self.cores['bg_terciario'])
+            
+            # LabelFrame
+            style.configure('TLabelframe',
+                          background=self.cores['bg_frame'],
+                          foreground=self.cores['fg_titulo'],
+                          bordercolor=self.cores['border'])
+            style.configure('TLabelframe.Label',
+                          background=self.cores['bg_frame'],
+                          foreground=self.cores['fg_titulo'])
+            
+            # Notebook (abas)
+            style.configure('TNotebook',
+                          background=self.cores['bg_principal'],
+                          bordercolor=self.cores['border'])
+            style.configure('TNotebook.Tab',
+                          background=self.cores['bg_secundario'],
+                          foreground=self.cores['fg_normal'],
+                          padding=[10, 5])
+            style.map('TNotebook.Tab',
+                    background=[('selected', self.cores['bg_terciario'])],
+                    foreground=[('selected', self.cores['fg_titulo'])])
+            
+            # Button
+            style.configure('TButton',
+                          background=self.cores['bg_button'],
+                          foreground=self.cores['fg_normal'],
+                          bordercolor=self.cores['border'],
+                          padding=5)
+            style.map('TButton',
+                    background=[('active', self.cores['bg_terciario'])])
+            
+            # Entry
+            style.configure('TEntry',
+                          fieldbackground=self.cores['bg_input'],
+                          foreground=self.cores['fg_input'],
+                          bordercolor=self.cores['border'])
+            
+            # Combobox
+            style.configure('TCombobox',
+                          fieldbackground=self.cores['bg_input'],
+                          foreground=self.cores['fg_input'],
+                          background=self.cores['bg_button'],
+                          bordercolor=self.cores['border'])
+            
+            # Label
+            style.configure('TLabel',
+                          background=self.cores['bg_principal'],
+                          foreground=self.cores['fg_normal'])
+            
+            # Frame
+            style.configure('TFrame',
+                          background=self.cores['bg_principal'])
+            
+            # Treeview
+            style.configure('Treeview',
+                          background=self.cores['bg_input'],
+                          foreground=self.cores['fg_input'],
+                          fieldbackground=self.cores['bg_input'],
+                          bordercolor=self.cores['border'])
+            style.configure('Treeview.Heading',
+                          background=self.cores['bg_secundario'],
+                          foreground=self.cores['fg_titulo'],
+                          bordercolor=self.cores['border'])
+            style.map('Treeview',
+                    background=[('selected', self.cores['bg_terciario'])],
+                    foreground=[('selected', self.cores['fg_titulo'])])
+            
+        else:
+            # Voltar ao tema padrão claro
+            style.theme_use('vista')  # ou 'winnative' no Windows
+    
+    def aplicar_tema_interface(self):
+        """Aplica o tema atual em toda a interface"""
+        if not hasattr(self, 'notebook'):
+            return
+        
+        # Atualizar cor de fundo da janela principal
+        self.root.configure(bg=self.cores['bg_principal'])
+        
+        # Atualizar todas as abas
+        for widget in self.root.winfo_children():
+            self.atualizar_widget_cores(widget)
+    
+    def atualizar_widget_cores(self, widget):
+        """Atualiza recursivamente as cores de um widget e seus filhos"""
+        try:
+            # Atualizar Frame
+            if isinstance(widget, tk.Frame):
+                widget.configure(bg=self.cores['bg_principal'])
+            
+            # Atualizar Label
+            elif isinstance(widget, tk.Label):
+                widget.configure(bg=self.cores['bg_principal'], fg=self.cores['fg_normal'])
+            
+            # Atualizar LabelFrame
+            elif isinstance(widget, tk.LabelFrame):
+                widget.configure(bg=self.cores['bg_frame'])
+            
+            # Recursivamente atualizar widgets filhos
+            for child in widget.winfo_children():
+                self.atualizar_widget_cores(child)
+        except:
+            pass
+    
     def mostrar_tela_carregamento(self):
         """Mostra tela de carregamento inicial"""
         # Frame de carregamento
-        self.loading_frame = tk.Frame(self.root, bg='#f0f0f0')
+        self.loading_frame = tk.Frame(self.root, bg=self.cores['bg_principal'])
         self.loading_frame.pack(fill='both', expand=True)
         
         # Logo/Título
         title_label = tk.Label(self.loading_frame, text="🎯 BET BOOSTER V2", 
-                              font=('Arial', 24, 'bold'), fg='#1e40af', bg='#f0f0f0')
+                              font=('Arial', 24, 'bold'), fg='#1e40af', bg=self.cores['bg_principal'])
         title_label.pack(pady=(100, 20))
         
         subtitle_label = tk.Label(self.loading_frame, text="Sistema Avançado de Análise de Apostas", 
-                                 font=('Arial', 14), fg='#374151', bg='#f0f0f0')
+                                 font=('Arial', 14), fg=self.cores['fg_normal'], bg=self.cores['bg_principal'])
         subtitle_label.pack(pady=(0, 50))
         
         # Frame para o progresso
-        progress_frame = tk.Frame(self.loading_frame, bg='#f0f0f0')
+        progress_frame = tk.Frame(self.loading_frame, bg=self.cores['bg_principal'])
         progress_frame.pack(pady=20)
         
         # Etapa atual de processamento (em destaque)
         self.loading_etapa = tk.Label(progress_frame, text="Inicializando...", 
-                                    font=('Arial', 12, 'bold'), fg='#1e40af', bg='#f0f0f0')
+                                    font=('Arial', 12, 'bold'), fg='#1e40af', bg=self.cores['bg_principal'])
         self.loading_etapa.pack(pady=(0, 15))
         
         # Frame para a barra e porcentagem
-        bar_frame = tk.Frame(progress_frame, bg='#f0f0f0')
+        bar_frame = tk.Frame(progress_frame, bg=self.cores['bg_principal'])
         bar_frame.pack(fill='x')
         
         # Barra de progresso
@@ -92,7 +265,7 @@ class BetBoosterV2:
         
         # Label para porcentagem
         self.progress_percent = tk.Label(bar_frame, text="0%", 
-                                       font=('Arial', 10, 'bold'), fg='#1e40af', bg='#f0f0f0')
+                                       font=('Arial', 10, 'bold'), fg='#1e40af', bg=self.cores['bg_principal'])
         self.progress_percent.pack(side='left')
         
         # Configurar estilo da barra de progresso
@@ -739,6 +912,10 @@ class BetBoosterV2:
         ttk.Button(buttons_frame, text="💡 Dicas de Apostas", 
                   command=self.mostrar_dicas_apostas).pack(side='left', padx=5)
         
+        # Botão de modo escuro
+        ttk.Button(buttons_frame, text="🌙 Modo Escuro" if not self.modo_escuro.get() else "☀️ Modo Claro/Escuro", 
+                  command=self.toggle_modo_escuro).pack(side='left', padx=5)
+        
         # Separador visual
         ttk.Separator(buttons_frame, orient='vertical').pack(side='left', fill='y', padx=10)
         
@@ -755,7 +932,7 @@ class BetBoosterV2:
         main_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
         # Canvas para scroll - configuração melhorada
-        canvas = tk.Canvas(main_frame)
+        canvas = tk.Canvas(main_frame, bg=self.cores['bg_principal'], highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         self.apostas_hot_frame = ttk.Frame(canvas)
         
@@ -1973,7 +2150,10 @@ class BetBoosterV2:
         resultado_frame = ttk.LabelFrame(self.tab_analise, text="Resultado da Análise", padding=15)
         resultado_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        self.texto_analise = scrolledtext.ScrolledText(resultado_frame, height=25, width=80)
+        self.texto_analise = scrolledtext.ScrolledText(resultado_frame, height=25, width=80,
+                                                       bg=self.cores['bg_input'],
+                                                       fg=self.cores['fg_input'],
+                                                       insertbackground=self.cores['fg_input'])
         self.texto_analise.pack(fill='both', expand=True)
     
     # Métodos para cadastro manual
@@ -3055,13 +3235,13 @@ class BetBoosterV2:
     
     def criar_card_aposta_hot(self, aposta, index, parent_frame):
         """Cria um card visual para uma aposta recomendada"""
-        # Frame do card
-        card_frame = ttk.LabelFrame(parent_frame, text="", padding=15)
+        # Frame do card com cor de fundo do tema
+        card_frame = tk.Frame(parent_frame, bg=self.cores['bg_card'], relief='ridge', borderwidth=2, padx=15, pady=15)
         card_frame.pack(fill='x', pady=5, padx=5, expand=True)
         
         # Linha 1: Jogo, horário e ranking
-        linha1 = ttk.Frame(card_frame)
-        linha1.pack(fill='x')
+        linha1 = tk.Frame(card_frame, bg=self.cores['bg_card'])
+        linha1.pack(fill='x', padx=15, pady=10)
         
         # Adicionar número da posição e medalha (se for top 3)
         if index == 0:
@@ -3077,12 +3257,12 @@ class BetBoosterV2:
             ranking_text = f"#{index+1}"
             ranking_color = "black"
             
-        ranking_label = ttk.Label(linha1, text=ranking_text, font=('Arial', 10, 'bold'))
-        ranking_label.configure(foreground=ranking_color)
+        ranking_label = tk.Label(linha1, text=ranking_text, font=('Arial', 10, 'bold'),
+                                bg=self.cores['bg_card'], fg=ranking_color)
         ranking_label.pack(side='left', padx=(0, 10))
         
-        jogo_label = ttk.Label(linha1, text=aposta['jogo'], 
-                              style='Subtitle.TLabel', font=('Arial', 12, 'bold'))
+        jogo_label = tk.Label(linha1, text=aposta['jogo'], 
+                             font=('Arial', 12, 'bold'), bg=self.cores['bg_card'], fg=self.cores['fg_titulo'])
         jogo_label.pack(side='left')
         
         # Mostrar período (Hoje/Amanhã) ou data formatada
@@ -3111,75 +3291,73 @@ class BetBoosterV2:
             periodo = datetime.now().strftime('%d/%m/%Y')
             periodo_color = 'red'
             
-        periodo_label = ttk.Label(linha1, text=f"📅 {periodo}", 
-                                 font=('Arial', 10, 'bold'))
+        periodo_label = tk.Label(linha1, text=f"📅 {periodo}", 
+                                font=('Arial', 10, 'bold'), bg=self.cores['bg_card'], fg=periodo_color)
         periodo_label.pack(side='right')
         
-        # Configurar cor do período
-        periodo_label.configure(foreground=periodo_color)
-        
-        horario_label = ttk.Label(linha1, text=f"⏰ {aposta['horario']}", 
-                                 style='Success.TLabel')
+        horario_label = tk.Label(linha1, text=f"⏰ {aposta['horario']}", 
+                                font=('Arial', 10, 'bold'), bg=self.cores['bg_card'], fg='green')
         horario_label.pack(side='right')
         
         # Linha 2: Liga
-        liga_label = ttk.Label(card_frame, text=f"🏆 {aposta['liga']}", 
-                              font=('Arial', 9))
+        liga_label = tk.Label(card_frame, text=f"🏆 {aposta['liga']}", 
+                             font=('Arial', 9), bg=self.cores['bg_card'], fg=self.cores['fg_normal'])
         liga_label.pack(anchor='w')
         
         # Linha 3: Aposta e tipo
-        linha3 = ttk.Frame(card_frame)
+        linha3 = tk.Frame(card_frame, bg=self.cores['bg_card'])
         linha3.pack(fill='x', pady=5)
         
         # Definir cor e emoji baseado no tipo
         if aposta['tipo'] == 'FORTE':
-            tipo_color = 'Success.TLabel'
+            tipo_color_fg = 'green'
             tipo_emoji = '🟢'
         elif aposta['tipo'] == 'MODERADA':
-            tipo_color = 'Moderate.TLabel'
+            tipo_color_fg = '#4A90E2'
             tipo_emoji = '🔵'
         elif aposta['tipo'] == 'MUITO_ARRISCADA':
-            tipo_color = 'Danger.TLabel'
+            tipo_color_fg = 'red'
             tipo_emoji = '🔴'
         else:  # ARRISCADA
-            tipo_color = 'Hot.TLabel'
+            tipo_color_fg = 'orange'
             tipo_emoji = '🟡'
         
-        aposta_label = ttk.Label(linha3, text=f"{tipo_emoji} {aposta['aposta']}", 
-                                style=tipo_color, font=('Arial', 11, 'bold'))
+        aposta_label = tk.Label(linha3, text=f"{tipo_emoji} {aposta['aposta']}", 
+                               font=('Arial', 11, 'bold'), bg=self.cores['bg_card'], fg=tipo_color_fg)
         aposta_label.pack(side='left')
         
-        odd_label = ttk.Label(linha3, text=f"Odd: {aposta['odd']:.2f}", 
-                             style='Subtitle.TLabel')
+        odd_label = tk.Label(linha3, text=f"Odd: {aposta['odd']:.2f}", 
+                            font=('Arial', 11, 'bold'), bg=self.cores['bg_card'], fg=self.cores['fg_titulo'])
         odd_label.pack(side='right')
         
         # Linha 4: Probabilidades e value
-        linha4 = ttk.Frame(card_frame)
+        linha4 = tk.Frame(card_frame, bg=self.cores['bg_card'])
         linha4.pack(fill='x')
         
-        prob_calc_label = ttk.Label(linha4, text=f"📊 Prob. Bet Booster: {aposta['prob_calculada']:.1f}%")
+        prob_calc_label = tk.Label(linha4, text=f"📊 Prob. Bet Booster: {aposta['prob_calculada']:.1f}%",
+                                   bg=self.cores['bg_card'], fg=self.cores['fg_normal'])
         prob_calc_label.pack(side='left')
         
-        prob_impl_label = ttk.Label(linha4, text=f"🎯 Prob. Bet365: {aposta['prob_implicita']:.1f}%")
+        prob_impl_label = tk.Label(linha4, text=f"🎯 Prob. Bet365: {aposta['prob_implicita']:.1f}%",
+                                   bg=self.cores['bg_card'], fg=self.cores['fg_normal'])
         prob_impl_label.pack(side='left', padx=20)
         
-        value_label = ttk.Label(linha4, text=f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%", 
-                               style='Success.TLabel')
+        value_label = tk.Label(linha4, text=f"💎 Value: {((aposta['value'] - 1) * 100):.1f}%", 
+                              font=('Arial', 10, 'bold'), bg=self.cores['bg_card'], fg='green')
         value_label.pack(side='right')
         
         # Adicionar linha com a média das probabilidades
-        linha_media = ttk.Frame(card_frame)
+        linha_media = tk.Frame(card_frame, bg=self.cores['bg_card'])
         linha_media.pack(fill='x', pady=(5, 0))
         
         media_prob = (aposta['prob_calculada'] + aposta['prob_implicita']) / 2
-        media_label = ttk.Label(linha_media, 
-                               text=f"⭐ Média Prob.: {media_prob:.1f}%",
-                               font=('Arial', 10, 'bold'))
-        media_label.configure(foreground='purple')
+        media_label = tk.Label(linha_media, 
+                              text=f"⭐ Média Prob.: {media_prob:.1f}%",
+                              font=('Arial', 10, 'bold'), bg=self.cores['bg_card'], fg='purple')
         media_label.pack(side='left')
         
         # Botões de ação
-        acoes_frame = ttk.Frame(card_frame)
+        acoes_frame = tk.Frame(card_frame, bg=self.cores['bg_card'])
         acoes_frame.pack(fill='x', pady=10)
         
         ttk.Button(acoes_frame, text="📋 Adicionar à Múltipla", 
@@ -4142,7 +4320,10 @@ Menos de 3.5: {probabilidades['under_35']:.1f}%
         resultado_frame = ttk.LabelFrame(window, text="Cálculos", padding=15)
         resultado_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        resultado_text = scrolledtext.ScrolledText(resultado_frame, height=15, width=50)
+        resultado_text = scrolledtext.ScrolledText(resultado_frame, height=15, width=50,
+                                                   bg=self.cores['bg_input'],
+                                                   fg=self.cores['fg_input'],
+                                                   insertbackground=self.cores['fg_input'])
         resultado_text.pack(fill='both', expand=True)
         
         def calcular():
@@ -5134,7 +5315,10 @@ Status: {aposta['status'].title()}
         resultado_frame = ttk.LabelFrame(window, text="Cálculos", padding=15)
         resultado_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        resultado_text = scrolledtext.ScrolledText(resultado_frame, height=10, width=50)
+        resultado_text = scrolledtext.ScrolledText(resultado_frame, height=10, width=50,
+                                                   bg=self.cores['bg_input'],
+                                                   fg=self.cores['fg_input'],
+                                                   insertbackground=self.cores['fg_input'])
         resultado_text.pack(fill='both', expand=True)
         
         def calcular_aposta():
@@ -5706,25 +5890,26 @@ Status: {aposta['status'].title()}
             janela_dicas = tk.Toplevel(self.root)
             janela_dicas.title("💡 Dicas de Apostas - Bet Booster")
             janela_dicas.geometry("600x500")
-            janela_dicas.configure(bg='white')
+            janela_dicas.configure(bg=self.cores['bg_principal'])
             
             # Frame principal
-            main_frame = tk.Frame(janela_dicas, bg='white')
+            main_frame = tk.Frame(janela_dicas, bg=self.cores['bg_principal'])
             main_frame.pack(fill='both', expand=True, padx=20, pady=20)
             
             # Título
             titulo = tk.Label(main_frame, text="💡 DICAS DE APOSTAS", 
-                             font=('Arial', 18, 'bold'), bg='white', fg='#1e40af')
+                             font=('Arial', 18, 'bold'), bg=self.cores['bg_principal'], fg='#1e40af')
             titulo.pack(pady=(0, 20))
             
             # Área de texto com scroll
-            texto_frame = tk.Frame(main_frame, bg='white')
+            texto_frame = tk.Frame(main_frame, bg=self.cores['bg_principal'])
             texto_frame.pack(fill='both', expand=True)
             
             # ScrolledText para as dicas
             texto_dicas = scrolledtext.ScrolledText(texto_frame, wrap=tk.WORD, 
                                                    font=('Arial', 11), 
-                                                   bg='#f8f9fa', fg='#374151',
+                                                   bg=self.cores['bg_secundario'], fg=self.cores['fg_normal'],
+                                                   insertbackground=self.cores['fg_normal'],
                                                    relief='flat', borderwidth=1)
             texto_dicas.pack(fill='both', expand=True)
             
@@ -5845,24 +6030,24 @@ Status: {aposta['status'].title()}
             menu_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
             menu_window.transient(self.root)
             menu_window.grab_set()
-            menu_window.configure(bg='white')
+            menu_window.configure(bg=self.cores['bg_principal'])
             
             # Título
-            titulo_frame = tk.Frame(menu_window, bg='white')
+            titulo_frame = tk.Frame(menu_window, bg=self.cores['bg_principal'])
             titulo_frame.pack(fill='x', pady=20)
             
             tk.Label(titulo_frame, text="🎫 BILHETES AUTOMÁTICOS", 
-                    font=('Arial', 18, 'bold'), bg='white', fg='#1e40af').pack()
+                    font=('Arial', 18, 'bold'), bg=self.cores['bg_principal'], fg='#1e40af').pack()
             tk.Label(titulo_frame, text="Escolha o tipo de bilhete desejado", 
-                    font=('Arial', 12), bg='white', fg='#374151').pack(pady=5)
+                    font=('Arial', 12), bg=self.cores['bg_principal'], fg=self.cores['fg_normal']).pack(pady=5)
             
             # Frame dos botões
-            botoes_frame = tk.Frame(menu_window, bg='white')
+            botoes_frame = tk.Frame(menu_window, bg=self.cores['bg_principal'])
             botoes_frame.pack(fill='both', expand=True, padx=30, pady=20)
             
             # Bilhetes Seguros
             seguros_frame = tk.LabelFrame(botoes_frame, text="🛡️ Bilhetes Seguros", 
-                                        font=('Arial', 12, 'bold'), fg='green', bg='white')
+                                        font=('Arial', 12, 'bold'), fg='green', bg=self.cores['bg_principal'])
             seguros_frame.pack(fill='x', pady=10)
             
             tk.Button(seguros_frame, text="🛡️ Bilhete Seguro 1", 
@@ -5877,7 +6062,7 @@ Status: {aposta['status'].title()}
             
             # Bilhetes Arriscados
             arriscados_frame = tk.LabelFrame(botoes_frame, text="⚡ Bilhetes Arriscados", 
-                                           font=('Arial', 12, 'bold'), fg='orange', bg='white')
+                                           font=('Arial', 12, 'bold'), fg='orange', bg=self.cores['bg_principal'])
             arriscados_frame.pack(fill='x', pady=10)
             
             tk.Button(arriscados_frame, text="⚡ Bilhete Arriscado 1", 
@@ -5892,7 +6077,7 @@ Status: {aposta['status'].title()}
             
             # Bilhetes Muito Arriscados
             muito_arriscados_frame = tk.LabelFrame(botoes_frame, text="🔥 Bilhetes Muito Arriscados", 
-                                                 font=('Arial', 12, 'bold'), fg='red', bg='white')
+                                                 font=('Arial', 12, 'bold'), fg='red', bg=self.cores['bg_principal'])
             muito_arriscados_frame.pack(fill='x', pady=10)
             
             tk.Button(muito_arriscados_frame, text="🔥 Bilhete Muito Arriscado 1", 
@@ -5907,7 +6092,7 @@ Status: {aposta['status'].title()}
             
             # Bilhete Especial
             especial_frame = tk.LabelFrame(botoes_frame, text="🎰 Bilhete Especial", 
-                                         font=('Arial', 12, 'bold'), fg='purple', bg='white')
+                                         font=('Arial', 12, 'bold'), fg='purple', bg=self.cores['bg_principal'])
             especial_frame.pack(fill='x', pady=10)
             
             tk.Button(especial_frame, text="🎰 Bilhete Mega Sena", 
