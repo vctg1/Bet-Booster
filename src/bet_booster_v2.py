@@ -717,10 +717,10 @@ class BetBoosterV2:
         
         # Filtro de Ordenação
         ttk.Label(filtros_frame, text="🔄 Ordenar por:").pack(side='left', padx=(0, 5))
-        self.filtro_ordenacao = ttk.Combobox(filtros_frame, values=["Value", "Prob. Média", "Horário", "Odd"], 
+        self.filtro_ordenacao = ttk.Combobox(filtros_frame, values=["Prob. Média", "Value", "Horário", "Odd"], 
                                            state="readonly", width=12)
         self.filtro_ordenacao.pack(side='left', padx=(0, 15))
-        self.filtro_ordenacao.set("Value")
+        self.filtro_ordenacao.set("Prob. Média")
         self.filtro_ordenacao.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
         
         # Botão de limpeza de filtros
@@ -1039,16 +1039,15 @@ class BetBoosterV2:
                 apostas_filtradas.sort(key=lambda x: x.get('horario', '00:00'))
             elif filtro_ordenacao == "Odd":
                 apostas_filtradas.sort(key=lambda x: float(x.get('odd', 0)))
-            elif filtro_ordenacao == "Prob. Média":
+            elif filtro_ordenacao == "Value":
+                apostas_filtradas.sort(key=lambda x: float(x.get('value', 0)), reverse=True)
+                # Ordenar pela média das probabilidades (maior para menor)
+            else:  # Prob. média
                 for aposta in apostas_filtradas:
                     prob_calc = float(aposta.get('prob_calculada', 0))
                     prob_impl = float(aposta.get('prob_implicita', 0))
                     aposta['prob_media'] = (prob_calc + prob_impl) / 2
-                
-                # Ordenar pela média das probabilidades (maior para menor)
                 apostas_filtradas.sort(key=lambda x: float(x.get('prob_media', 0)), reverse=True)
-            else:  # Value
-                apostas_filtradas.sort(key=lambda x: float(x.get('value', 0)), reverse=True)
             
             # Atualizar interface com apostas filtradas
             self.atualizar_apostas_hot_interface(apostas_filtradas)
@@ -1062,7 +1061,7 @@ class BetBoosterV2:
                 status_text += f" ({filtro_recomendacao})"
             if filtro_tipo != "Todos":
                 status_text += f" ({filtro_tipo})"
-            if filtro_ordenacao != "Value":
+            if filtro_ordenacao != "Prob. Média":
                 status_text += f" [Ord: {filtro_ordenacao}]"
             
             self.status_hot.config(text=status_text, style='Success.TLabel')
@@ -1148,7 +1147,7 @@ class BetBoosterV2:
         # Resetar filtros de recomendação e tipo
         self.filtro_recomendacao.set("Todos")
         self.filtro_tipo.set("Todos")
-        self.filtro_ordenacao.set("Value")
+        self.filtro_ordenacao.set("Prob. Média")
         
         # Resetar o calendário para a data atual
         data_atual = datetime.now()
