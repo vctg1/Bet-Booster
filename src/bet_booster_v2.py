@@ -717,10 +717,10 @@ class BetBoosterV2:
         
         # Filtro de Ordenação
         ttk.Label(filtros_frame, text="🔄 Ordenar por:").pack(side='left', padx=(0, 5))
-        self.filtro_ordenacao = ttk.Combobox(filtros_frame, values=["Prob. Média", "Horário", "Odd"], 
+        self.filtro_ordenacao = ttk.Combobox(filtros_frame, values=["Value", "Prob. Média", "Horário", "Odd"], 
                                            state="readonly", width=12)
         self.filtro_ordenacao.pack(side='left', padx=(0, 15))
-        self.filtro_ordenacao.set("Prob. Média")
+        self.filtro_ordenacao.set("Value")
         self.filtro_ordenacao.bind('<<ComboboxSelected>>', self.aplicar_filtros_hot)
         
         # Botão de limpeza de filtros
@@ -742,13 +742,9 @@ class BetBoosterV2:
         # Separador visual
         ttk.Separator(buttons_frame, orient='vertical').pack(side='left', fill='y', padx=10)
         
-        # Botões de bilhetes automáticos
-        ttk.Button(buttons_frame, text="🛡️ Bilhete Seguro", 
-                  command=self.criar_bilhete_seguro).pack(side='left', padx=2)
-        ttk.Button(buttons_frame, text="⚡ Bilhete Arriscado", 
-                  command=self.criar_bilhete_arriscado).pack(side='left', padx=2)
-        ttk.Button(buttons_frame, text="🔥 Bilhete Mais Arriscado", 
-                  command=self.criar_bilhete_mais_arriscado).pack(side='left', padx=2)
+        # Botão de bilhetes automáticos
+        ttk.Button(buttons_frame, text="🎫 Bilhetes", 
+                  command=self.mostrar_menu_bilhetes).pack(side='left', padx=5)
         
         # Status
         self.status_hot = ttk.Label(controles_frame, text="Pronto para análise", style='Success.TLabel')
@@ -1043,8 +1039,7 @@ class BetBoosterV2:
                 apostas_filtradas.sort(key=lambda x: x.get('horario', '00:00'))
             elif filtro_ordenacao == "Odd":
                 apostas_filtradas.sort(key=lambda x: float(x.get('odd', 0)))
-            else:  # Ordenação padrão por probabilidade média
-                # Calcular a média de probabilidade para cada aposta
+            elif filtro_ordenacao == "Prob. Média":
                 for aposta in apostas_filtradas:
                     prob_calc = float(aposta.get('prob_calculada', 0))
                     prob_impl = float(aposta.get('prob_implicita', 0))
@@ -1052,6 +1047,8 @@ class BetBoosterV2:
                 
                 # Ordenar pela média das probabilidades (maior para menor)
                 apostas_filtradas.sort(key=lambda x: float(x.get('prob_media', 0)), reverse=True)
+            else:  # Value
+                apostas_filtradas.sort(key=lambda x: float(x.get('value', 0)), reverse=True)
             
             # Atualizar interface com apostas filtradas
             self.atualizar_apostas_hot_interface(apostas_filtradas)
@@ -1065,7 +1062,7 @@ class BetBoosterV2:
                 status_text += f" ({filtro_recomendacao})"
             if filtro_tipo != "Todos":
                 status_text += f" ({filtro_tipo})"
-            if filtro_ordenacao != "Prob. Média":
+            if filtro_ordenacao != "Value":
                 status_text += f" [Ord: {filtro_ordenacao}]"
             
             self.status_hot.config(text=status_text, style='Success.TLabel')
@@ -1151,7 +1148,7 @@ class BetBoosterV2:
         # Resetar filtros de recomendação e tipo
         self.filtro_recomendacao.set("Todos")
         self.filtro_tipo.set("Todos")
-        self.filtro_ordenacao.set("Prob. Média")
+        self.filtro_ordenacao.set("Value")
         
         # Resetar o calendário para a data atual
         data_atual = datetime.now()
@@ -5827,6 +5824,267 @@ Status: {aposta['status'].title()}
             print(f"Erro ao classificar aposta: {e}")
             return None
 
+    def mostrar_menu_bilhetes(self):
+        """Mostra menu com opções de bilhetes baseado no arquivo recomendacao_apostas.txt"""
+        try:
+            # Criar janela do menu
+            menu_window = tk.Toplevel(self.root)
+            menu_window.title("🎫 Bilhetes Automáticos")
+            
+            # Obter dimensões da tela
+            screen_width = menu_window.winfo_screenwidth()
+            screen_height = menu_window.winfo_screenheight()
+            
+            # Definir tamanho da janela (largura fixa, altura quase toda a tela)
+            window_width = 600
+            window_height = int(screen_height * 0.85)  # 85% da altura da tela
+            
+            # Calcular posição para centralizar horizontalmente
+            x = (screen_width - window_width) // 2
+            y = int(screen_height * 0.05)  # 5% do topo da tela
+            
+            menu_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+            menu_window.transient(self.root)
+            menu_window.grab_set()
+            menu_window.configure(bg='white')
+            
+            # Título
+            titulo_frame = tk.Frame(menu_window, bg='white')
+            titulo_frame.pack(fill='x', pady=20)
+            
+            tk.Label(titulo_frame, text="🎫 BILHETES AUTOMÁTICOS", 
+                    font=('Arial', 18, 'bold'), bg='white', fg='#1e40af').pack()
+            tk.Label(titulo_frame, text="Escolha o tipo de bilhete desejado", 
+                    font=('Arial', 12), bg='white', fg='#374151').pack(pady=5)
+            
+            # Frame dos botões
+            botoes_frame = tk.Frame(menu_window, bg='white')
+            botoes_frame.pack(fill='both', expand=True, padx=30, pady=20)
+            
+            # Bilhetes Seguros
+            seguros_frame = tk.LabelFrame(botoes_frame, text="🛡️ Bilhetes Seguros", 
+                                        font=('Arial', 12, 'bold'), fg='green', bg='white')
+            seguros_frame.pack(fill='x', pady=10)
+            
+            tk.Button(seguros_frame, text="🛡️ Bilhete Seguro 1", 
+                     font=('Arial', 11), bg='#22c55e', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('seguro_1', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            tk.Button(seguros_frame, text="🛡️ Bilhete Seguro 2", 
+                     font=('Arial', 11), bg='#22c55e', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('seguro_2', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            # Bilhetes Arriscados
+            arriscados_frame = tk.LabelFrame(botoes_frame, text="⚡ Bilhetes Arriscados", 
+                                           font=('Arial', 12, 'bold'), fg='orange', bg='white')
+            arriscados_frame.pack(fill='x', pady=10)
+            
+            tk.Button(arriscados_frame, text="⚡ Bilhete Arriscado 1", 
+                     font=('Arial', 11), bg='#f97316', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('arriscado_1', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            tk.Button(arriscados_frame, text="⚡ Bilhete Arriscado 2", 
+                     font=('Arial', 11), bg='#f97316', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('arriscado_2', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            # Bilhetes Muito Arriscados
+            muito_arriscados_frame = tk.LabelFrame(botoes_frame, text="🔥 Bilhetes Muito Arriscados", 
+                                                 font=('Arial', 12, 'bold'), fg='red', bg='white')
+            muito_arriscados_frame.pack(fill='x', pady=10)
+            
+            tk.Button(muito_arriscados_frame, text="🔥 Bilhete Muito Arriscado 1", 
+                     font=('Arial', 11), bg='#ef4444', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('muito_arriscado_1', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            tk.Button(muito_arriscados_frame, text="🔥 Bilhete Muito Arriscado 2", 
+                     font=('Arial', 11), bg='#ef4444', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('muito_arriscado_2', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            # Bilhete Especial
+            especial_frame = tk.LabelFrame(botoes_frame, text="🎰 Bilhete Especial", 
+                                         font=('Arial', 12, 'bold'), fg='purple', bg='white')
+            especial_frame.pack(fill='x', pady=10)
+            
+            tk.Button(especial_frame, text="🎰 Bilhete Mega Sena", 
+                     font=('Arial', 11), bg='#8b5cf6', fg='white',
+                     command=lambda: self.criar_bilhete_personalizado('mega_sena', menu_window),
+                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            
+            # Botão fechar
+            tk.Button(menu_window, text="❌ Fechar", command=menu_window.destroy,
+                     font=('Arial', 12), bg='#6b7280', fg='white',
+                     padx=30, pady=8).pack(pady=20)
+                     
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao mostrar menu de bilhetes: {str(e)}")
+
+    def criar_bilhete_personalizado(self, tipo_bilhete, menu_window):
+        """Cria bilhete personalizado baseado no tipo especificado"""
+        try:
+            menu_window.destroy()  # Fechar menu
+            
+            # Mapear nomes dos bilhetes
+            nomes_bilhetes = {
+                'seguro_1': 'Bilhete Seguro 1',
+                'seguro_2': 'Bilhete Seguro 2', 
+                'arriscado_1': 'Bilhete Arriscado 1',
+                'arriscado_2': 'Bilhete Arriscado 2',
+                'muito_arriscado_1': 'Bilhete Muito Arriscado 1',
+                'muito_arriscado_2': 'Bilhete Muito Arriscado 2',
+                'mega_sena': 'Bilhete Mega Sena'
+            }
+            
+            if tipo_bilhete not in nomes_bilhetes:
+                messagebox.showerror("Erro", "Tipo de bilhete não encontrado")
+                return
+                
+            nome_bilhete = nomes_bilhetes[tipo_bilhete]
+            
+            # Verificar se temos apostas hot disponíveis
+            if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
+                messagebox.showwarning("Aviso", "Nenhuma aposta hot disponível. Carregue as apostas primeiro.")
+                return
+            
+            # Filtrar apostas por tipo
+            apostas_fortes = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'FORTE']
+            apostas_moderadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MODERADA']
+            apostas_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'ARRISCADA']
+            apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA']
+            
+            # Ordenar apostas por probabilidade (melhor para pior)
+            apostas_fortes.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_moderadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_muito_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            
+            # Montar o bilhete baseado na configuração específica
+            apostas_selecionadas = []
+            
+            # Lógica específica para cada tipo de bilhete
+            if tipo_bilhete == 'seguro_1':
+                # Primeira aposta forte + Primeira aposta moderada
+                if len(apostas_fortes) >= 1:
+                    apostas_selecionadas.append(apostas_fortes[0])  # Primeira forte
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                    
+            elif tipo_bilhete == 'seguro_2':
+                # Segunda aposta forte + Segunda aposta moderada
+                if len(apostas_fortes) >= 2:
+                    apostas_selecionadas.append(apostas_fortes[1])  # Segunda forte
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                    
+            elif tipo_bilhete == 'arriscado_1':
+                # Primeira aposta forte + Primeira e Segunda apostas moderadas
+                if len(apostas_fortes) >= 1:
+                    apostas_selecionadas.append(apostas_fortes[0])  # Primeira forte
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                    
+            elif tipo_bilhete == 'arriscado_2':
+                # Segunda aposta forte + Primeira e Segunda apostas moderadas
+                if len(apostas_fortes) >= 2:
+                    apostas_selecionadas.append(apostas_fortes[1])  # Segunda forte
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                    
+            elif tipo_bilhete == 'muito_arriscado_1':
+                # Primeira e Segunda apostas moderadas + Primeira aposta arriscada
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                if len(apostas_arriscadas) >= 1:
+                    apostas_selecionadas.append(apostas_arriscadas[0])  # Primeira arriscada
+                    
+            elif tipo_bilhete == 'muito_arriscado_2':
+                # Primeira e Segunda apostas moderadas + Segunda aposta arriscada
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                if len(apostas_arriscadas) >= 2:
+                    apostas_selecionadas.append(apostas_arriscadas[1])  # Segunda arriscada
+                    
+            elif tipo_bilhete == 'mega_sena':
+                # Primeira e Segunda apostas fortes + Primeira e Segunda apostas moderadas + Primeira aposta arriscada + Primeira aposta muito arriscada
+                if len(apostas_fortes) >= 1:
+                    apostas_selecionadas.append(apostas_fortes[0])  # Primeira forte
+                if len(apostas_fortes) >= 2:
+                    apostas_selecionadas.append(apostas_fortes[1])  # Segunda forte
+                if len(apostas_moderadas) >= 1:
+                    apostas_selecionadas.append(apostas_moderadas[0])  # Primeira moderada
+                if len(apostas_moderadas) >= 2:
+                    apostas_selecionadas.append(apostas_moderadas[1])  # Segunda moderada
+                if len(apostas_arriscadas) >= 1:
+                    apostas_selecionadas.append(apostas_arriscadas[0])  # Primeira arriscada
+                if len(apostas_muito_arriscadas) >= 1:
+                    apostas_selecionadas.append(apostas_muito_arriscadas[0])  # Primeira muito arriscada
+            
+            if not apostas_selecionadas:
+                messagebox.showwarning("Aviso", f"Não há apostas suficientes para criar o {nome_bilhete}")
+                return
+            
+            # Limpar múltipla atual e adicionar apostas selecionadas
+            self.apostas_multipla.clear()
+            
+            for aposta in apostas_selecionadas:
+                self.apostas_multipla.append({
+                    'jogo': aposta['jogo'],
+                    'aposta': aposta['aposta'],
+                    'tipo': aposta['tipo'],
+                    'odd': aposta['odd'],
+                    'nossa_prob': aposta.get('nossa_prob', aposta.get('prob_calculada', 0)),
+                    'prob_calculada': aposta.get('prob_calculada', aposta.get('nossa_prob', 0)),
+                    'prob_implicita': aposta.get('prob_implicita', 0),
+                    'match_id': aposta.get('match_id', ''),
+                    'liga': aposta.get('liga', ''),
+                    'horario': aposta.get('horario', '')
+                })
+            
+            # Atualizar interface
+            self.atualizar_multipla()
+            
+            # Mudar para aba de múltiplas
+            self.notebook.select(4)  # Índice da aba múltiplas
+            
+            # Gerar lista dos jogos adicionados para a descrição com posições
+            jogos_adicionados = []
+            
+            for aposta in apostas_selecionadas:
+                tipo_aposta = aposta['tipo'].upper()
+               
+                jogo_nome = aposta['jogo']
+                # Extrair apenas os nomes dos times (remover "vs")
+                if " vs " in jogo_nome:
+                    times = jogo_nome.split(" vs ")
+                    jogo_resumido = f"{times[0][:20]}{'...' if len(times[0]) > 20 else ''} vs {times[1][:20]}{'...' if len(times[1]) > 20 else ''}"
+                else:
+                    jogo_resumido = jogo_nome[:40] + ("..." if len(jogo_nome) > 40 else "")
+                
+                jogos_adicionados.append(f"• {jogo_resumido} ({aposta['aposta']})")
+            
+            # Não limitar jogos, mostrar todos com suas posições
+            jogos_texto = "\n".join(jogos_adicionados)
+            
+            messagebox.showinfo("Sucesso", 
+                              f"{nome_bilhete} criado com sucesso!\n\n"
+                              f"Jogos adicionados:\n{jogos_texto}")
+                              
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao criar bilhete: {str(e)}")
+
     def obter_apostas_por_classificacao(self, tipo_classificacao):
         """Obtém apostas filtradas por classificação"""
         if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
@@ -5842,143 +6100,7 @@ Status: {aposta['status'].title()}
         # Ordenar por apostas que tenham a maior diferença de gols esperados
         apostas_classificadas.sort(key=lambda x: x.get('prob_calculada', 0), reverse=True)
         return apostas_classificadas
-    
-    def criar_bilhete_seguro(self):
-        """Cria bilhete seguro: 1 aposta forte + 1 aposta moderada"""
-        try:
-            apostas_fortes = self.obter_apostas_por_classificacao("forte")
-            apostas_moderadas = self.obter_apostas_por_classificacao("moderada")
-            
-            if len(apostas_fortes) == 0:
-                messagebox.showwarning("Aviso", "Não há apostas fortes disponíveis para criar o bilhete seguro.")
-                return
-                
-            if len(apostas_moderadas) == 0:
-                messagebox.showwarning("Aviso", "Não há apostas moderadas disponíveis para criar o bilhete seguro.")
-                return
-            
-            # Limpar múltipla atual
-            self.apostas_multipla.clear()
-            
-            # Adicionar 1 aposta forte (a melhor)
-            self.apostas_multipla.append(apostas_fortes[0])
-            
-            # Adicionar 1 aposta moderada (a melhor)
-            self.apostas_multipla.append(apostas_moderadas[0])
-            
-            # Atualizar interface da múltipla
-            if hasattr(self, 'atualizar_multipla'):
-                self.atualizar_multipla()
-            
-            # Mudar para a aba múltiplas
-            if hasattr(self, 'notebook'):
-                for i in range(self.notebook.index("end")):
-                    if "Múltiplas" in self.notebook.tab(i, "text"):
-                        self.notebook.select(i)
-                        break
-            
-            messagebox.showinfo("Sucesso", 
-                              f"Bilhete seguro criado com sucesso!\n\n" +
-                              f"🟢 Aposta Forte: {apostas_fortes[0]['aposta']}\n" +
-                              f"🟡 Aposta Moderada: {apostas_moderadas[0]['aposta']}\n\n" +
-                              f"Odd Total: {apostas_fortes[0]['odd'] * apostas_moderadas[0]['odd']:.2f}")
-            
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao criar bilhete seguro: {str(e)}")
-    
-    def criar_bilhete_arriscado(self):
-        """Cria bilhete arriscado: 1 aposta forte + 2 apostas moderadas"""
-        try:
-            apostas_fortes = self.obter_apostas_por_classificacao("forte")
-            apostas_moderadas = self.obter_apostas_por_classificacao("moderada")
-            
-            if len(apostas_fortes) == 0:
-                messagebox.showwarning("Aviso", "Não há apostas fortes disponíveis para criar o bilhete arriscado.")
-                return
-                
-            if len(apostas_moderadas) < 2:
-                messagebox.showwarning("Aviso", f"São necessárias pelo menos 2 apostas moderadas. Encontradas: {len(apostas_moderadas)}")
-                return
-            
-            # Limpar múltipla atual
-            self.apostas_multipla.clear()
-            
-            # Adicionar 1 aposta forte (a melhor)
-            self.apostas_multipla.append(apostas_fortes[0])
-            
-            # Adicionar 2 apostas moderadas (as 2 melhores)
-            self.apostas_multipla.append(apostas_moderadas[0])
-            self.apostas_multipla.append(apostas_moderadas[1])
-            
-            # Atualizar interface da múltipla
-            if hasattr(self, 'atualizar_multipla'):
-                self.atualizar_multipla()
-            
-            # Mudar para a aba múltiplas
-            if hasattr(self, 'notebook'):
-                for i in range(self.notebook.index("end")):
-                    if "Múltiplas" in self.notebook.tab(i, "text"):
-                        self.notebook.select(i)
-                        break
-            
-            odd_total = apostas_fortes[0]['odd'] * apostas_moderadas[0]['odd'] * apostas_moderadas[1]['odd']
-            
-            messagebox.showinfo("Sucesso", 
-                              f"Bilhete arriscado criado com sucesso!\n\n" +
-                              f"🟢 Aposta Forte: {apostas_fortes[0]['aposta']}\n" +
-                              f"🟡 Aposta Moderada 1: {apostas_moderadas[0]['aposta']}\n" +
-                              f"🟡 Aposta Moderada 2: {apostas_moderadas[1]['aposta']}\n\n" +
-                              f"Odd Total: {odd_total:.2f}")
-            
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao criar bilhete arriscado: {str(e)}")
-    
-    def criar_bilhete_mais_arriscado(self):
-        """Cria bilhete mais arriscado: 2 apostas moderadas + 1 aposta arriscada"""
-        try:
-            apostas_moderadas = self.obter_apostas_por_classificacao("moderada")
-            apostas_arriscadas = self.obter_apostas_por_classificacao("arriscada")
-            
-            if len(apostas_moderadas) < 2:
-                messagebox.showwarning("Aviso", f"São necessárias pelo menos 2 apostas moderadas. Encontradas: {len(apostas_moderadas)}")
-                return
-                
-            if len(apostas_arriscadas) == 0:
-                messagebox.showwarning("Aviso", "Não há apostas arriscadas disponíveis para criar o bilhete mais arriscado.")
-                return
-            
-            # Limpar múltipla atual
-            self.apostas_multipla.clear()
-            
-            # Adicionar 2 apostas moderadas (as 2 melhores)
-            self.apostas_multipla.append(apostas_moderadas[0])
-            self.apostas_multipla.append(apostas_moderadas[1])
-            
-            # Adicionar 1 aposta arriscada (a melhor)
-            self.apostas_multipla.append(apostas_arriscadas[0])
-            
-            # Atualizar interface da múltipla
-            if hasattr(self, 'atualizar_multipla'):
-                self.atualizar_multipla()
-            
-            # Mudar para a aba múltiplas
-            if hasattr(self, 'notebook'):
-                for i in range(self.notebook.index("end")):
-                    if "Múltiplas" in self.notebook.tab(i, "text"):
-                        self.notebook.select(i)
-                        break
-            
-            odd_total = apostas_moderadas[0]['odd'] * apostas_moderadas[1]['odd'] * apostas_arriscadas[0]['odd']
-            
-            messagebox.showinfo("Sucesso", 
-                              f"Bilhete mais arriscado criado com sucesso!\n\n" +
-                              f"🟡 Aposta Moderada 1: {apostas_moderadas[0]['aposta']}\n" +
-                              f"🟡 Aposta Moderada 2: {apostas_moderadas[1]['aposta']}\n" +
-                              f"🟠 Aposta Arriscada: {apostas_arriscadas[0]['aposta']}\n\n" +
-                              f"Odd Total: {odd_total:.2f}")
-            
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao criar bilhete mais arriscado: {str(e)}")
+
 
 def main():
     """Função principal"""
