@@ -5784,35 +5784,38 @@ Status: {aposta['status'].title()}
             
             # Por enquanto, vamos usar a classificação existente do sistema
             # que já está baseada em probabilidade e value
-            if "FORTE" in aposta.get('tipo', ''):
-                return "forte"
-            elif "MODERADA" in aposta.get('tipo', ''):
-                return "moderada"
-            elif "ARRISCADA" in aposta.get('tipo', '') and "MUITO" not in aposta.get('tipo', ''):
-                return "arriscada"
-            elif "MUITO_ARRISCADA" in aposta.get('tipo', ''):
-                return "muito_arriscada"
-            else:
-                # Classificar baseado em probabilidade e value como fallback
-                prob_implicita = aposta.get('prob_implicita', 0)
-                value = aposta.get('value', 1)
-                value_percent = (value - 1) * 100
-                
-                if value_percent >= 10 and prob_implicita >= 45:
+            if "Vitória" in aposta.get('aposta', '') and time_casa in aposta.get('jogo', ''):
+                if "FORTE" in aposta.get('tipo', ''):
                     return "forte"
-                elif value_percent >= 10 and prob_implicita >= 35:
+                elif "MODERADA" in aposta.get('tipo', ''):
                     return "moderada"
-                elif value_percent >= 10 and prob_implicita >= 25:
+                elif "ARRISCADA" in aposta.get('tipo', '') and "MUITO" not in aposta.get('tipo', ''):
                     return "arriscada"
-                elif value_percent >= 30 and prob_implicita >= 15:
+                elif "MUITO_ARRISCADA" in aposta.get('tipo', ''):
                     return "muito_arriscada"
                 else:
-                    return "moderada"  # Default
+                    # Classificar baseado em probabilidade e value como fallback
+                    prob_implicita = aposta.get('prob_implicita', 0)
+                    value = aposta.get('value', 1)
+                    value_percent = (value - 1) * 100
+                    
+                    if value_percent >= 10 and prob_implicita >= 45:
+                        return "forte"
+                    elif value_percent >= 10 and prob_implicita >= 35:
+                        return "moderada"
+                    elif value_percent >= 10 and prob_implicita >= 25:
+                        return "arriscada"
+                    elif value_percent >= 30 and prob_implicita >= 15:
+                        return "muito_arriscada"
+                    else:
+                        return None
+            else:
+                return None
                     
         except Exception as e:
             print(f"Erro ao classificar aposta: {e}")
-            return "moderada"  # Default em caso de erro
-    
+            return None
+
     def obter_apostas_por_classificacao(self, tipo_classificacao):
         """Obtém apostas filtradas por classificação"""
         if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
