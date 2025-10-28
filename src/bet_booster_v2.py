@@ -2928,12 +2928,12 @@ class BetBoosterV2:
                 away_team = odds_detalhadas.get('away_team', 'Visitante')
                 
                 apostas_resultado = [
-                    (f'Vitória {home_team}', value_casa, prob_casa_calc, prob_casa_implicita, result_odds['home']),
+                    (f'Vitória {home_team}', home_team, value_casa, prob_casa_calc, prob_casa_implicita, result_odds['home']),
                     ('Empate', value_empate, prob_empate_calc, prob_empate_implicita, result_odds['draw']),
-                    (f'Vitória {away_team}', value_fora, prob_fora_calc, prob_fora_implicita, result_odds['away'])
+                    (f'Vitória {away_team}', away_team, value_fora, prob_fora_calc, prob_fora_implicita, result_odds['away'])
                 ]
                 
-                for aposta, value, prob_calc, prob_impl, odd in apostas_resultado:
+                for aposta, home_team, value, prob_calc, prob_impl, odd in apostas_resultado:
                     # Converter value para porcentagem
                     value_percent = (value - 1) * 100
                     
@@ -2956,7 +2956,6 @@ class BetBoosterV2:
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
                         
                         forca = value * (prob_calc / 100)  # Força baseada em value e probabilidade
-                        
                         recomendacoes.append({
                             'jogo': f"{odds_detalhadas['home_team']} vs {odds_detalhadas['away_team']}",
                             'aposta': aposta,
@@ -5513,6 +5512,18 @@ Status: {aposta['status'].title()}
                 prob_vitoria_casa = (prob_vitoria_casa / total) * 100
                 prob_empate = (prob_empate / total) * 100
                 prob_vitoria_visitante = (prob_vitoria_visitante / total) * 100
+
+            # Adicionar 10% de vantagem para o time da casa
+            vantagem_casa = prob_vitoria_casa * 0.10
+            prob_vitoria_casa += vantagem_casa
+            
+            # Re-normalizar as outras probabilidades para que o total seja 100%
+            total_outras = prob_empate + prob_vitoria_visitante
+            if total_outras > 0:
+                fator_ajuste = (100 - prob_vitoria_casa) / total_outras
+                prob_empate *= fator_ajuste
+                prob_vitoria_visitante *= fator_ajuste
+
             
             # Calcular gols esperados total
             gols_esperados_total = gols_esperados_casa + gols_esperados_visitante
@@ -5784,7 +5795,7 @@ Status: {aposta['status'].title()}
             
             # Por enquanto, vamos usar a classificação existente do sistema
             # que já está baseada em probabilidade e value
-            if "Vitória" in aposta.get('aposta', '') and time_casa in aposta.get('jogo', ''):
+            if "Vitória" in aposta.get('aposta', ''):
                 if "FORTE" in aposta.get('tipo', ''):
                     return "forte"
                 elif "MODERADA" in aposta.get('tipo', ''):
@@ -5822,15 +5833,14 @@ Status: {aposta['status'].title()}
             return []
         
         apostas_classificadas = []
-        
+
         for aposta in self.apostas_hot:
             classificacao = self.classificar_aposta_por_criterios(aposta)
             if classificacao == tipo_classificacao:
                 apostas_classificadas.append(aposta)
-        
-        # Ordenar por value (maior primeiro) para pegar as melhores
-        apostas_classificadas.sort(key=lambda x: x.get('value', 1), reverse=True)
-        
+
+        # Ordenar por apostas que tenham a maior diferença de gols esperados
+        apostas_classificadas.sort(key=lambda x: x.get('prob_calculada', 0), reverse=True)
         return apostas_classificadas
     
     def criar_bilhete_seguro(self):
