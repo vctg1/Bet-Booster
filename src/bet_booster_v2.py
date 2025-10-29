@@ -3120,11 +3120,11 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd <=2 and prob_calc >= 55:
+                    if odd <=2 and prob_calc >= 50:
                         tipo_recomendacao = "FORTE"
-                    elif odd <=3 and prob_calc >= 55 or (odd <=2 and prob_calc >= 50):
+                    elif odd <=3 and prob_calc >= 55 or (odd <=2 and prob_calc >= 45):
                         tipo_recomendacao = "MODERADA"
-                    elif (odd <=4 and prob_calc >= 60) or (odd <=3 and prob_calc >= 55):
+                    elif (odd <=4 and prob_calc >= 60) or (odd <=3 and prob_calc >= 50):
                         tipo_recomendacao = "ARRISCADA"
                     elif (odd <=5 and prob_calc >= 60) or (odd <=4 and prob_calc >= 55):
                         tipo_recomendacao = "MUITO_ARRISCADA"
