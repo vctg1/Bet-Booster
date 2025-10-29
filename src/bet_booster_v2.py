@@ -3120,13 +3120,13 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Bet365 >= 40%, Prob. Bet365 >= 5% E < 15%, value > 0%
                     tipo_recomendacao = None
                     
-                    if odd <=2 and prob_calc >= 45:
+                    if odd <=2 and prob_calc >= 55:
                         tipo_recomendacao = "FORTE"
-                    elif odd <=3 and prob_calc >= 50 or (odd <=2 and prob_calc >= 40):
+                    elif odd <=3 and prob_calc >= 55 or (odd <=2 and prob_calc >= 50):
                         tipo_recomendacao = "MODERADA"
-                    elif (odd <=4 and prob_calc >= 55) or (odd <=3 and prob_calc >= 45):
+                    elif (odd <=4 and prob_calc >= 60) or (odd <=3 and prob_calc >= 55):
                         tipo_recomendacao = "ARRISCADA"
-                    elif (odd <=5 and prob_calc >= 60) or (odd <=4 and prob_calc >= 50):
+                    elif (odd <=5 and prob_calc >= 60) or (odd <=4 and prob_calc >= 55):
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
@@ -3192,9 +3192,9 @@ class BetBoosterV2:
                     # Muito Arriscada: Prob. Booster > 50%, Prob. Bet365 >= 5% E < 20%, value > 0
                     tipo_recomendacao = None
                     
-                    if odd <= 1.8 and prob_calc >= 60:
+                    if odd <= 1.8 and prob_calc >= 70:
                         tipo_recomendacao = "FORTE"
-                    elif (odd <= 2.5 and prob_calc >= 60) or (odd <= 1.8 and prob_calc >= 50):
+                    elif (odd <= 2.5 and prob_calc >= 70) or (odd <= 1.8 and prob_calc >= 65):
                         tipo_recomendacao = "MODERADA"
                     else:
                         tipo_recomendacao = None
@@ -5693,8 +5693,8 @@ Status: {aposta['status'].title()}
                 prob_empate = (prob_empate / total) * 100
                 prob_vitoria_visitante = (prob_vitoria_visitante / total) * 100
 
-            # Adicionar 10% de vantagem para o time da casa
-            vantagem_casa = prob_vitoria_casa * 0.10
+            # Adicionar 5% de vantagem para o time da casa
+            vantagem_casa = prob_vitoria_casa * 0.05
             prob_vitoria_casa += vantagem_casa
             
             # Re-normalizar as outras probabilidades para que o total seja 100%
