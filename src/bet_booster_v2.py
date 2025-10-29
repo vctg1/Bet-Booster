@@ -944,10 +944,23 @@ class BetBoosterV2:
         canvas.create_window((0, 0), window=self.apostas_hot_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        # Melhorar a rolagem com eventos de mouse
+        # Melhorar a rolagem com eventos de mouse - bind específico para este canvas
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Função para ativar scroll quando mouse entra na área
+        def _bind_mouse_scroll(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Função para desativar scroll quando mouse sai da área
+        def _unbind_mouse_scroll(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        # Bind de entrada e saída do mouse
+        canvas.bind("<Enter>", _bind_mouse_scroll)
+        canvas.bind("<Leave>", _unbind_mouse_scroll)
+        self.apostas_hot_frame.bind("<Enter>", _bind_mouse_scroll)
+        self.apostas_hot_frame.bind("<Leave>", _unbind_mouse_scroll)
         
         # Configurar o canvas para expandir corretamente
         canvas.pack(side="left", fill="both", expand=True)
@@ -6065,8 +6078,18 @@ Status: {aposta['status'].title()}
             def on_mouse_wheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             
-            # Bind do scroll do mouse no canvas e no frame
-            canvas.bind_all("<MouseWheel>", on_mouse_wheel)
+            # Função para ativar scroll quando mouse entra na janela
+            def on_enter(event):
+                canvas.bind_all("<MouseWheel>", on_mouse_wheel)
+            
+            # Função para desativar scroll quando mouse sai da janela
+            def on_leave(event):
+                canvas.unbind_all("<MouseWheel>")
+            
+            # Bind de entrada e saída do mouse
+            menu_window.bind("<Enter>", on_enter)
+            canvas.bind("<Enter>", on_enter)
+            scrollable_frame.bind("<Enter>", on_enter)
             
             # Unbind quando fechar a janela
             def on_close():
