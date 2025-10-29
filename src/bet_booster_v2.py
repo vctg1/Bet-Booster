@@ -6038,8 +6038,8 @@ Status: {aposta['status'].title()}
             screen_height = menu_window.winfo_screenheight()
             
             # Definir tamanho da janela (maior para exibir 4 bilhetes lado a lado)
-            window_width = int(screen_width * 0.95)  # 95% da largura da tela
-            window_height = int(screen_height * 0.90)  # 90% da altura da tela
+            window_width = int(screen_width * 0.80)  # 95% da largura da tela
+            window_height = int(screen_height * 0.80)  # 90% da altura da tela
             
             # Calcular posição para centralizar
             x = (screen_width - window_width) // 2
@@ -6115,20 +6115,14 @@ Status: {aposta['status'].title()}
             
             # Configurações dos bilhetes
             bilhetes_config = [
-                # 4 Bilhetes Seguros
                 ('🛡️ Bilhete Seguro 1', 'seguro_1', '#22c55e', 'green'),
                 ('🛡️ Bilhete Seguro 2', 'seguro_2', '#22c55e', 'green'),
                 ('🛡️ Bilhete Seguro 3', 'seguro_3', '#22c55e', 'green'),
                 ('🛡️ Bilhete Seguro 4', 'seguro_4', '#22c55e', 'green'),
-                # 3 Bilhetes Arriscados
                 ('⚡ Bilhete Arriscado 1', 'arriscado_1', '#f97316', 'orange'),
                 ('⚡ Bilhete Arriscado 2', 'arriscado_2', '#f97316', 'orange'),
-                ('⚡ Bilhete Arriscado 3', 'arriscado_3', '#f97316', 'orange'),
-                # 3 Bilhetes Muito Arriscados
                 ('🔥 Bilhete Muito Arriscado 1', 'muito_arriscado_1', '#ef4444', 'red'),
                 ('🔥 Bilhete Muito Arriscado 2', 'muito_arriscado_2', '#ef4444', 'red'),
-                ('🔥 Bilhete Muito Arriscado 3', 'muito_arriscado_3', '#ef4444', 'red'),
-                # 2 Bilhetes Mega Sena
                 ('🎰 Bilhete Mega Sena 1', 'mega_sena_1', '#8b5cf6', 'purple'),
                 ('🎰 Bilhete Mega Sena 2', 'mega_sena_2', '#8b5cf6', 'purple')
             ]
@@ -6162,208 +6156,145 @@ Status: {aposta['status'].title()}
     
     def obter_apostas_bilhete(self, tipo_bilhete, apostas_fortes, apostas_moderadas, 
                               apostas_arriscadas, apostas_muito_arriscadas):
-        """Retorna as apostas para um tipo de bilhete específico"""
+        """Retorna as apostas para um tipo de bilhete específico com preenchimento automático"""
         apostas_selecionadas = []
+        apostas_backup = []  # Backup de apostas fortes e moderadas para preencher faltantes
         
-        # BILHETES SEGUROS (4 opções) - Máximo 2 apostas: 1 Forte + 1 Moderada
+        # Criar lista de backup com todas fortes e moderadas
+        apostas_backup.extend(apostas_fortes)
+        apostas_backup.extend(apostas_moderadas)
+        
+        # Índice para o backup
+        backup_idx = 0
+        
         if tipo_bilhete == 'seguro_1':
+            # primeira forte + segunda forte
             if len(apostas_fortes) >= 1:
                 apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 2:  # Fallback: usar forte se não tiver moderada
+                backup_idx = 1
+            if len(apostas_fortes) >= 2:
                 apostas_selecionadas.append(apostas_fortes[1])
+                backup_idx = 2
                 
         elif tipo_bilhete == 'seguro_2':
-            if len(apostas_fortes) >= 2:
-                apostas_selecionadas.append(apostas_fortes[1])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 2:
-                apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
+            # terceira forte + primeira moderada
+            if len(apostas_fortes) >= 3:
                 apostas_selecionadas.append(apostas_fortes[2])
+                backup_idx = 3
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
                 
         elif tipo_bilhete == 'seguro_3':
-            if len(apostas_fortes) >= 3:
-                apostas_selecionadas.append(apostas_fortes[2])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 3:
-                apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 4:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[3])
-                
-        elif tipo_bilhete == 'seguro_4':
+            # quarta forte + segunda moderada
             if len(apostas_fortes) >= 4:
                 apostas_selecionadas.append(apostas_fortes[3])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 4:
-                apostas_selecionadas.append(apostas_moderadas[3])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 5:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[4])
-        
-        # BILHETES ARRISCADOS (3 opções) - Máximo 3 apostas: 1 Forte + 2 Moderadas
-        elif tipo_bilhete == 'arriscado_1':
-            if len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 2:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[1])
+                backup_idx = 4
             if len(apostas_moderadas) >= 2:
                 apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
+                
+        elif tipo_bilhete == 'seguro_4':
+            # quinta forte + terceira moderada
+            if len(apostas_fortes) >= 5:
+                apostas_selecionadas.append(apostas_fortes[4])
+                backup_idx = 5
+            if len(apostas_moderadas) >= 3:
+                apostas_selecionadas.append(apostas_moderadas[2])
+                
+        elif tipo_bilhete == 'arriscado_1':
+            # primeira forte + segunda forte + primeira moderada
+            if len(apostas_fortes) >= 1:
+                apostas_selecionadas.append(apostas_fortes[0])
+                backup_idx = 1
+            if len(apostas_fortes) >= 2:
+                apostas_selecionadas.append(apostas_fortes[1])
+                backup_idx = 2
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
                 
         elif tipo_bilhete == 'arriscado_2':
-            if len(apostas_fortes) >= 2:
-                apostas_selecionadas.append(apostas_fortes[1])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 2:
-                apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
-            if len(apostas_moderadas) >= 3:
-                apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_fortes) >= 4:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[3])
-                
-        elif tipo_bilhete == 'arriscado_3':
+            # terceira forte + quarta forte + segunda moderada
             if len(apostas_fortes) >= 3:
                 apostas_selecionadas.append(apostas_fortes[2])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            if len(apostas_moderadas) >= 3:
-                apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 4:  # Fallback
+                backup_idx = 3
+            if len(apostas_fortes) >= 4:
                 apostas_selecionadas.append(apostas_fortes[3])
-            if len(apostas_moderadas) >= 4:
-                apostas_selecionadas.append(apostas_moderadas[3])
-            elif len(apostas_fortes) >= 5:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[4])
-        
-        # BILHETES MUITO ARRISCADOS (3 opções) - Máximo 3 apostas: 2 Moderadas + 1 Arriscada
-        elif tipo_bilhete == 'muito_arriscado_1':
-            if len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 1:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[0])
+                backup_idx = 4
             if len(apostas_moderadas) >= 2:
                 apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_fortes) >= 2:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[1])
+                
+        elif tipo_bilhete == 'muito_arriscado_1':
+            # primeira moderada + segunda moderada + primeira arriscada
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
             if len(apostas_arriscadas) >= 1:
                 apostas_selecionadas.append(apostas_arriscadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
                 
         elif tipo_bilhete == 'muito_arriscado_2':
-            if len(apostas_moderadas) >= 2:
-                apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 1:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[0])
+            # terceira moderada + quarta moderada + segunda arriscada
             if len(apostas_moderadas) >= 3:
                 apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_fortes) >= 2:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[1])
-            if len(apostas_arriscadas) >= 2:
-                apostas_selecionadas.append(apostas_arriscadas[1])
-            elif len(apostas_arriscadas) >= 1:
-                apostas_selecionadas.append(apostas_arriscadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
-                
-        elif tipo_bilhete == 'muito_arriscado_3':
-            if len(apostas_moderadas) >= 3:
-                apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 1:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[0])
             if len(apostas_moderadas) >= 4:
                 apostas_selecionadas.append(apostas_moderadas[3])
-            elif len(apostas_fortes) >= 2:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[1])
-            if len(apostas_arriscadas) >= 3:
-                apostas_selecionadas.append(apostas_arriscadas[2])
-            elif len(apostas_arriscadas) >= 1:
-                apostas_selecionadas.append(apostas_arriscadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
-        
-        # BILHETES MEGA SENA (2 opções) - 2 Fortes + 2 Moderadas + 2 Arriscadas
+            if len(apostas_arriscadas) >= 2:
+                apostas_selecionadas.append(apostas_arriscadas[1])
+                
         elif tipo_bilhete == 'mega_sena_1':
-            # 2 Fortes
+            # primeira forte + segunda forte + primeira moderada + segunda moderada + primeira arriscada
             if len(apostas_fortes) >= 1:
                 apostas_selecionadas.append(apostas_fortes[0])
+                backup_idx = 1
             if len(apostas_fortes) >= 2:
                 apostas_selecionadas.append(apostas_fortes[1])
-            # 2 Moderadas
+                backup_idx = 2
             if len(apostas_moderadas) >= 1:
                 apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 3:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[2])
             if len(apostas_moderadas) >= 2:
                 apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_fortes) >= 4:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[3])
-            # 2 Arriscadas
             if len(apostas_arriscadas) >= 1:
                 apostas_selecionadas.append(apostas_arriscadas[0])
-            elif len(apostas_fortes) >= 5:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[4])
-            if len(apostas_arriscadas) >= 2:
-                apostas_selecionadas.append(apostas_arriscadas[1])
-            elif len(apostas_fortes) >= 6:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[5])
                 
         elif tipo_bilhete == 'mega_sena_2':
-            # 2 Fortes (diferentes do mega_sena_1)
-            if len(apostas_fortes) >= 2:
-                apostas_selecionadas.append(apostas_fortes[1])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
+            # terceira forte + quarta forte + terceira moderada + quarta moderada + segunda arriscada
             if len(apostas_fortes) >= 3:
                 apostas_selecionadas.append(apostas_fortes[2])
-            elif len(apostas_fortes) >= 1:
-                apostas_selecionadas.append(apostas_fortes[0])
-            # 2 Moderadas
-            if len(apostas_moderadas) >= 2:
-                apostas_selecionadas.append(apostas_moderadas[1])
-            elif len(apostas_moderadas) >= 1:
-                apostas_selecionadas.append(apostas_moderadas[0])
-            elif len(apostas_fortes) >= 4:  # Fallback
+                backup_idx = 3
+            if len(apostas_fortes) >= 4:
                 apostas_selecionadas.append(apostas_fortes[3])
+                backup_idx = 4
             if len(apostas_moderadas) >= 3:
                 apostas_selecionadas.append(apostas_moderadas[2])
-            elif len(apostas_fortes) >= 5:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[4])
-            # 2 Arriscadas
+            if len(apostas_moderadas) >= 4:
+                apostas_selecionadas.append(apostas_moderadas[3])
             if len(apostas_arriscadas) >= 2:
                 apostas_selecionadas.append(apostas_arriscadas[1])
-            elif len(apostas_arriscadas) >= 1:
-                apostas_selecionadas.append(apostas_arriscadas[0])
-            elif len(apostas_fortes) >= 6:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[5])
-            if len(apostas_arriscadas) >= 3:
-                apostas_selecionadas.append(apostas_arriscadas[2])
-            elif len(apostas_fortes) >= 7:  # Fallback
-                apostas_selecionadas.append(apostas_fortes[6])
+        
+        # Preencher apostas faltantes com backup (se necessário)
+        # Determinar quantas apostas devem ter cada bilhete
+        apostas_esperadas = {
+            'seguro_1': 2, 'seguro_2': 2, 'seguro_3': 2, 'seguro_4': 2,
+            'arriscado_1': 3, 'arriscado_2': 3,
+            'muito_arriscado_1': 3, 'muito_arriscado_2': 3,
+            'mega_sena_1': 5, 'mega_sena_2': 5
+        }
+        
+        num_esperado = apostas_esperadas.get(tipo_bilhete, 2)
+        
+        # Se faltam apostas, preencher com backup
+        while len(apostas_selecionadas) < num_esperado and backup_idx < len(apostas_backup):
+            # Verificar se a aposta já não está na lista
+            aposta_backup = apostas_backup[backup_idx]
+            ja_existe = False
+            for ap in apostas_selecionadas:
+                if ap['jogo'] == aposta_backup['jogo'] and ap['aposta'] == aposta_backup['aposta']:
+                    ja_existe = True
+                    break
+            
+            if not ja_existe:
+                apostas_selecionadas.append(aposta_backup)
+            
+            backup_idx += 1
         
         return apostas_selecionadas
     
@@ -6535,10 +6466,8 @@ Status: {aposta['status'].title()}
                 'seguro_4': 'Bilhete Seguro 4',
                 'arriscado_1': 'Bilhete Arriscado 1',
                 'arriscado_2': 'Bilhete Arriscado 2',
-                'arriscado_3': 'Bilhete Arriscado 3',
                 'muito_arriscado_1': 'Bilhete Muito Arriscado 1',
                 'muito_arriscado_2': 'Bilhete Muito Arriscado 2',
-                'muito_arriscado_3': 'Bilhete Muito Arriscado 3',
                 'mega_sena_1': 'Bilhete Mega Sena 1',
                 'mega_sena_2': 'Bilhete Mega Sena 2'
             }
@@ -6566,10 +6495,11 @@ Status: {aposta['status'].title()}
             apostas_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
             apostas_muito_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
             
-            # Montar o bilhete baseado na configuração específica
-            # Usar a mesma função obter_apostas_bilhete para consistência
-            apostas_selecionadas = self.obter_apostas_bilhete(tipo_bilhete, apostas_fortes, apostas_moderadas,
-                                                              apostas_arriscadas, apostas_muito_arriscadas)
+            # Usar a função obter_apostas_bilhete para montar o bilhete
+            apostas_selecionadas = self.obter_apostas_bilhete(
+                tipo_bilhete, apostas_fortes, apostas_moderadas, 
+                apostas_arriscadas, apostas_muito_arriscadas
+            )
             
             if not apostas_selecionadas:
                 messagebox.showwarning("Aviso", f"Não há apostas suficientes para criar o {nome_bilhete}")
