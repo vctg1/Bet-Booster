@@ -3134,13 +3134,13 @@ class BetBoosterV2:
                     tipo_recomendacao = None
 
 
-                    if odd >= 1.5 and odd <= 2 and value >= 0:
+                    if odd >= 1.5 and odd < 2 and prob_calc >= 40:
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 2 and odd <= 3 and value >= 0:
+                    elif odd >= 2 and odd < 3 and prob_calc >= 40:
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 3 and odd <= 4 and value >= 0:
+                    elif odd >= 3 and odd < 4 and prob_calc >= 40:
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 4 and value >= 0:
+                    elif odd >= 4 and prob_calc >= 40:
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
