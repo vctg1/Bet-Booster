@@ -6009,8 +6009,13 @@ Status: {aposta['status'].title()}
             return None
 
     def mostrar_menu_bilhetes(self):
-        """Mostra menu com opções de bilhetes baseado no arquivo recomendacao_apostas.txt"""
+        """Mostra menu com opções de bilhetes com preview das apostas"""
         try:
+            # Verificar se temos apostas hot disponíveis
+            if not hasattr(self, 'apostas_hot') or not self.apostas_hot:
+                messagebox.showwarning("Aviso", "Nenhuma aposta hot disponível. Carregue as apostas primeiro.")
+                return
+            
             # Criar janela do menu
             menu_window = tk.Toplevel(self.root)
             menu_window.title("🎫 Bilhetes Automáticos")
@@ -6019,94 +6024,329 @@ Status: {aposta['status'].title()}
             screen_width = menu_window.winfo_screenwidth()
             screen_height = menu_window.winfo_screenheight()
             
-            # Definir tamanho da janela (largura fixa, altura quase toda a tela)
-            window_width = 600
-            window_height = int(screen_height * 0.85)  # 85% da altura da tela
+            # Definir tamanho da janela (maior para exibir 4 bilhetes lado a lado)
+            window_width = int(screen_width * 0.95)  # 95% da largura da tela
+            window_height = int(screen_height * 0.90)  # 90% da altura da tela
             
-            # Calcular posição para centralizar horizontalmente
+            # Calcular posição para centralizar
             x = (screen_width - window_width) // 2
-            y = int(screen_height * 0.05)  # 5% do topo da tela
+            y = int(screen_height * 0.02)  # 2% do topo da tela
             
             menu_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
             menu_window.transient(self.root)
-            menu_window.grab_set()
             menu_window.configure(bg=self.cores['bg_principal'])
             
             # Título
             titulo_frame = tk.Frame(menu_window, bg=self.cores['bg_principal'])
-            titulo_frame.pack(fill='x', pady=20)
+            titulo_frame.pack(fill='x', pady=10)
             
             tk.Label(titulo_frame, text="🎫 BILHETES AUTOMÁTICOS", 
                     font=('Arial', 18, 'bold'), bg=self.cores['bg_principal'], fg='#1e40af').pack()
-            tk.Label(titulo_frame, text="Escolha o tipo de bilhete desejado", 
-                    font=('Arial', 12), bg=self.cores['bg_principal'], fg=self.cores['fg_normal']).pack(pady=5)
+            tk.Label(titulo_frame, text="Visualize e escolha os bilhetes ou apostas individuais", 
+                    font=('Arial', 11), bg=self.cores['bg_principal'], fg=self.cores['fg_normal']).pack(pady=2)
             
-            # Frame dos botões
-            botoes_frame = tk.Frame(menu_window, bg=self.cores['bg_principal'])
-            botoes_frame.pack(fill='both', expand=True, padx=30, pady=20)
+            # Canvas com scrollbar para os bilhetes
+            canvas_frame = tk.Frame(menu_window, bg=self.cores['bg_principal'])
+            canvas_frame.pack(fill='both', expand=True, padx=10, pady=10)
             
-            # Bilhetes Seguros
-            seguros_frame = tk.LabelFrame(botoes_frame, text="🛡️ Bilhetes Seguros", 
-                                        font=('Arial', 12, 'bold'), fg='green', bg=self.cores['bg_principal'])
-            seguros_frame.pack(fill='x', pady=10)
+            canvas = tk.Canvas(canvas_frame, bg=self.cores['bg_principal'], highlightthickness=0)
+            scrollbar = tk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg=self.cores['bg_principal'])
             
-            tk.Button(seguros_frame, text="🛡️ Bilhete Seguro 1", 
-                     font=('Arial', 11), bg='#22c55e', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('seguro_1', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
             
-            tk.Button(seguros_frame, text="🛡️ Bilhete Seguro 2", 
-                     font=('Arial', 11), bg='#22c55e', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('seguro_2', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
             
-            # Bilhetes Arriscados
-            arriscados_frame = tk.LabelFrame(botoes_frame, text="⚡ Bilhetes Arriscados", 
-                                           font=('Arial', 12, 'bold'), fg='orange', bg=self.cores['bg_principal'])
-            arriscados_frame.pack(fill='x', pady=10)
+            # Função para scroll com mouse
+            def on_mouse_wheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             
-            tk.Button(arriscados_frame, text="⚡ Bilhete Arriscado 1", 
-                     font=('Arial', 11), bg='#f97316', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('arriscado_1', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            # Bind do scroll do mouse no canvas e no frame
+            canvas.bind_all("<MouseWheel>", on_mouse_wheel)
             
-            tk.Button(arriscados_frame, text="⚡ Bilhete Arriscado 2", 
-                     font=('Arial', 11), bg='#f97316', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('arriscado_2', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            # Unbind quando fechar a janela
+            def on_close():
+                canvas.unbind_all("<MouseWheel>")
+                menu_window.destroy()
             
-            # Bilhetes Muito Arriscados
-            muito_arriscados_frame = tk.LabelFrame(botoes_frame, text="🔥 Bilhetes Muito Arriscados", 
-                                                 font=('Arial', 12, 'bold'), fg='red', bg=self.cores['bg_principal'])
-            muito_arriscados_frame.pack(fill='x', pady=10)
+            menu_window.protocol("WM_DELETE_WINDOW", on_close)
             
-            tk.Button(muito_arriscados_frame, text="🔥 Bilhete Muito Arriscado 1", 
-                     font=('Arial', 11), bg='#ef4444', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('muito_arriscado_1', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
             
-            tk.Button(muito_arriscados_frame, text="🔥 Bilhete Muito Arriscado 2", 
-                     font=('Arial', 11), bg='#ef4444', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('muito_arriscado_2', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            # Obter apostas filtradas
+            apostas_fortes = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'FORTE']
+            apostas_moderadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MODERADA']
+            apostas_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'ARRISCADA']
+            apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA']
             
-            # Bilhete Especial
-            especial_frame = tk.LabelFrame(botoes_frame, text="🎰 Bilhete Especial", 
-                                         font=('Arial', 12, 'bold'), fg='purple', bg=self.cores['bg_principal'])
-            especial_frame.pack(fill='x', pady=10)
+            # Ordenar apostas
+            apostas_fortes.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_moderadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_muito_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
             
-            tk.Button(especial_frame, text="🎰 Bilhete Mega Sena", 
-                     font=('Arial', 11), bg='#8b5cf6', fg='white',
-                     command=lambda: self.criar_bilhete_personalizado('mega_sena', menu_window),
-                     padx=20, pady=8).pack(fill='x', padx=10, pady=5)
+            # Configurações dos bilhetes
+            bilhetes_config = [
+                ('🛡️ Bilhete Seguro 1', 'seguro_1', '#22c55e', 'green'),
+                ('🛡️ Bilhete Seguro 2', 'seguro_2', '#22c55e', 'green'),
+                ('⚡ Bilhete Arriscado 1', 'arriscado_1', '#f97316', 'orange'),
+                ('⚡ Bilhete Arriscado 2', 'arriscado_2', '#f97316', 'orange'),
+                ('🔥 Bilhete Muito Arriscado 1', 'muito_arriscado_1', '#ef4444', 'red'),
+                ('🔥 Bilhete Muito Arriscado 2', 'muito_arriscado_2', '#ef4444', 'red'),
+                ('🎰 Bilhete Mega Sena', 'mega_sena', '#8b5cf6', 'purple')
+            ]
+            
+            # Criar bilhetes em layout de grid (4 por linha)
+            row = 0
+            col = 0
+            
+            for nome_bilhete, tipo_bilhete, cor_bg, cor_fg in bilhetes_config:
+                apostas_bilhete = self.obter_apostas_bilhete(tipo_bilhete, apostas_fortes, apostas_moderadas, 
+                                                             apostas_arriscadas, apostas_muito_arriscadas)
+                
+                if apostas_bilhete:
+                    self.criar_card_bilhete(scrollable_frame, nome_bilhete, tipo_bilhete, 
+                                          apostas_bilhete, cor_bg, cor_fg, menu_window, row, col)
+                    
+                    # Avançar para próxima posição
+                    col += 1
+                    if col >= 4:  # 4 bilhetes por linha
+                        col = 0
+                        row += 1
             
             # Botão fechar
-            tk.Button(menu_window, text="❌ Fechar", command=menu_window.destroy,
-                     font=('Arial', 12), bg='#6b7280', fg='white',
-                     padx=30, pady=8).pack(pady=20)
+            btn_fechar = tk.Button(menu_window, text="❌ Fechar", command=on_close,
+                     font=('Arial', 12, 'bold'), bg='#6b7280', fg='white',
+                     padx=30, pady=10)
+            btn_fechar.pack(pady=15)
                      
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao mostrar menu de bilhetes: {str(e)}")
+    
+    def obter_apostas_bilhete(self, tipo_bilhete, apostas_fortes, apostas_moderadas, 
+                              apostas_arriscadas, apostas_muito_arriscadas):
+        """Retorna as apostas para um tipo de bilhete específico"""
+        apostas_selecionadas = []
+        
+        if tipo_bilhete == 'seguro_1':
+            if len(apostas_fortes) >= 1:
+                apostas_selecionadas.append(apostas_fortes[0])
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+                
+        elif tipo_bilhete == 'seguro_2':
+            if len(apostas_fortes) >= 2:
+                apostas_selecionadas.append(apostas_fortes[1])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+                
+        elif tipo_bilhete == 'arriscado_1':
+            if len(apostas_fortes) >= 1:
+                apostas_selecionadas.append(apostas_fortes[0])
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+                
+        elif tipo_bilhete == 'arriscado_2':
+            if len(apostas_fortes) >= 2:
+                apostas_selecionadas.append(apostas_fortes[1])
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+                
+        elif tipo_bilhete == 'muito_arriscado_1':
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+            if len(apostas_arriscadas) >= 1:
+                apostas_selecionadas.append(apostas_arriscadas[0])
+                
+        elif tipo_bilhete == 'muito_arriscado_2':
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+            if len(apostas_arriscadas) >= 2:
+                apostas_selecionadas.append(apostas_arriscadas[1])
+                
+        elif tipo_bilhete == 'mega_sena':
+            if len(apostas_fortes) >= 1:
+                apostas_selecionadas.append(apostas_fortes[0])
+            if len(apostas_fortes) >= 2:
+                apostas_selecionadas.append(apostas_fortes[1])
+            if len(apostas_moderadas) >= 1:
+                apostas_selecionadas.append(apostas_moderadas[0])
+            if len(apostas_moderadas) >= 2:
+                apostas_selecionadas.append(apostas_moderadas[1])
+            if len(apostas_arriscadas) >= 1:
+                apostas_selecionadas.append(apostas_arriscadas[0])
+            if len(apostas_muito_arriscadas) >= 1:
+                apostas_selecionadas.append(apostas_muito_arriscadas[0])
+        
+        return apostas_selecionadas
+    
+    def criar_card_bilhete(self, parent, nome_bilhete, tipo_bilhete, apostas, cor_bg, cor_fg, menu_window, row, col):
+        """Cria um card visual para um bilhete com preview das apostas em layout grid"""
+        # Frame principal do card
+        card_frame = tk.Frame(parent, bg=self.cores['bg_card'], relief='ridge', borderwidth=2)
+        card_frame.grid(row=row, column=col, sticky='nsew', pady=8, padx=8)
+        
+        # Configurar peso das colunas para expansão uniforme (4 colunas)
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_columnconfigure(1, weight=1)
+        parent.grid_columnconfigure(2, weight=1)
+        parent.grid_columnconfigure(3, weight=1)
+        
+        # Header do bilhete
+        header_frame = tk.Frame(card_frame, bg=cor_bg)
+        header_frame.pack(fill='x')
+        
+        # Calcular odd total
+        odd_total = 1.0
+        for aposta in apostas:
+            odd_total *= aposta.get('odd', 1.0)
+        
+        # Nome e odd total
+        tk.Label(header_frame, text=nome_bilhete, 
+                font=('Arial', 12, 'bold'), bg=cor_bg, fg='white').pack(side='left', padx=12, pady=6)
+        
+        tk.Label(header_frame, text=f"ODD: {odd_total:.2f}x", 
+                font=('Arial', 11, 'bold'), bg=cor_bg, fg='white').pack(side='right', padx=12, pady=6)
+        
+        # Lista de apostas
+        apostas_frame = tk.Frame(card_frame, bg=self.cores['bg_card'])
+        apostas_frame.pack(fill='both', expand=True, padx=8, pady=8)
+        
+        for idx, aposta in enumerate(apostas, 1):
+            # Frame para cada aposta
+            aposta_frame = tk.Frame(apostas_frame, bg=self.cores['bg_secundario'], relief='solid', borderwidth=1)
+            aposta_frame.pack(fill='x', pady=2)
+            
+            # Info da aposta
+            info_frame = tk.Frame(aposta_frame, bg=self.cores['bg_secundario'])
+            info_frame.pack(side='left', fill='both', expand=True, padx=8, pady=4)
+            
+            # Jogo
+            jogo_text = aposta['jogo']
+            if len(jogo_text) > 40:
+                jogo_text = jogo_text[:37] + "..."
+            tk.Label(info_frame, text=f"{idx}. {jogo_text}", 
+                    font=('Arial', 9, 'bold'), bg=self.cores['bg_secundario'], 
+                    fg=self.cores['fg_titulo'], anchor='w').pack(fill='x')
+            
+            # Aposta e tipo
+            aposta_info = f"{aposta['aposta']} - {aposta['tipo']}"
+            tk.Label(info_frame, text=aposta_info, 
+                    font=('Arial', 8), bg=self.cores['bg_secundario'], 
+                    fg=self.cores['fg_normal'], anchor='w').pack(fill='x')
+            
+            # Odd e probabilidade
+            odd_prob_text = f"ODD: {aposta.get('odd', 0):.2f} | Prob: {aposta.get('nossa_prob', 0):.1f}%"
+            tk.Label(info_frame, text=odd_prob_text, 
+                    font=('Arial', 8), bg=self.cores['bg_secundario'], 
+                    fg=self.cores['fg_secundario'], anchor='w').pack(fill='x')
+            
+            # Botão adicionar individual
+            btn_frame = tk.Frame(aposta_frame, bg=self.cores['bg_secundario'])
+            btn_frame.pack(side='right', padx=4, pady=4)
+            
+            tk.Button(btn_frame, text="+ Add", 
+                     font=('Arial', 8), bg='#3b82f6', fg='white',
+                     command=lambda a=aposta: self.adicionar_aposta_individual(a, menu_window),
+                     padx=6, pady=2).pack()
+        
+        # Botão adicionar bilhete completo
+        btn_completo_frame = tk.Frame(card_frame, bg=self.cores['bg_card'])
+        btn_completo_frame.pack(fill='x', padx=8, pady=8)
+        
+        tk.Button(btn_completo_frame, text=f"✅ Adicionar Completo (ODD: {odd_total:.2f}x)", 
+                 font=('Arial', 10, 'bold'), bg=cor_bg, fg='white',
+                 command=lambda: self.adicionar_bilhete_completo(tipo_bilhete, apostas, nome_bilhete, menu_window),
+                 padx=15, pady=8).pack(fill='x')
+    
+    def adicionar_aposta_individual(self, aposta, menu_window):
+        """Adiciona uma aposta individual à múltipla"""
+        try:
+            # Verificar se a aposta já está na múltipla
+            for ap in self.apostas_multipla:
+                if ap['jogo'] == aposta['jogo'] and ap['aposta'] == aposta['aposta']:
+                    messagebox.showinfo("Aviso", "Esta aposta já está na múltipla!")
+                    return
+            
+            # Adicionar aposta
+            self.apostas_multipla.append({
+                'jogo': aposta['jogo'],
+                'aposta': aposta['aposta'],
+                'tipo': aposta['tipo'],
+                'odd': aposta['odd'],
+                'nossa_prob': aposta.get('nossa_prob', aposta.get('prob_calculada', 0)),
+                'prob_calculada': aposta.get('prob_calculada', aposta.get('nossa_prob', 0)),
+                'prob_implicita': aposta.get('prob_implicita', 0),
+                'match_id': aposta.get('match_id', ''),
+                'liga': aposta.get('liga', ''),
+                'horario': aposta.get('horario', '')
+            })
+            
+            # Atualizar interface
+            self.atualizar_multipla()
+            
+            # Mudar para aba de múltiplas
+            self.notebook.select(4)
+            
+            messagebox.showinfo("Sucesso", f"Aposta adicionada!\n\n{aposta['jogo']}\n{aposta['aposta']}")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao adicionar aposta: {str(e)}")
+    
+    def adicionar_bilhete_completo(self, tipo_bilhete, apostas, nome_bilhete, menu_window):
+        """Adiciona todas as apostas de um bilhete à múltipla"""
+        try:
+            # Limpar múltipla atual
+            self.apostas_multipla.clear()
+            
+            # Adicionar todas as apostas
+            for aposta in apostas:
+                self.apostas_multipla.append({
+                    'jogo': aposta['jogo'],
+                    'aposta': aposta['aposta'],
+                    'tipo': aposta['tipo'],
+                    'odd': aposta['odd'],
+                    'nossa_prob': aposta.get('nossa_prob', aposta.get('prob_calculada', 0)),
+                    'prob_calculada': aposta.get('prob_calculada', aposta.get('nossa_prob', 0)),
+                    'prob_implicita': aposta.get('prob_implicita', 0),
+                    'match_id': aposta.get('match_id', ''),
+                    'liga': aposta.get('liga', ''),
+                    'horario': aposta.get('horario', '')
+                })
+            
+            # Atualizar interface
+            self.atualizar_multipla()
+            
+            # Mudar para aba de múltiplas
+            self.notebook.select(4)
+            
+            # Calcular odd total
+            odd_total = 1.0
+            for aposta in apostas:
+                odd_total *= aposta.get('odd', 1.0)
+            
+            menu_window.destroy()
+            
+            messagebox.showinfo("Sucesso", 
+                              f"{nome_bilhete} adicionado com sucesso!\n\n"
+                              f"{len(apostas)} apostas adicionadas\n"
+                              f"ODD Total: {odd_total:.2f}x")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao adicionar bilhete: {str(e)}")
 
     def criar_bilhete_personalizado(self, tipo_bilhete, menu_window):
         """Cria bilhete personalizado baseado no tipo especificado"""
