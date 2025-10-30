@@ -3134,16 +3134,16 @@ class BetBoosterV2:
                     tipo_recomendacao = None
 
 
-                    if odd >= 1.5 and odd < 2 and prob_calc >= 40:
+                    if (odd >= 1.5) and (odd < 2) and (prob_calc >= 40):
                         tipo_recomendacao = "FORTE"
-                    elif odd >= 2 and odd < 3 and prob_calc >= 40:
+                    elif (odd >= 2) and (odd < 3) and (prob_calc >= 40):
                         tipo_recomendacao = "MODERADA"
-                    elif odd >= 3 and odd < 4 and prob_calc >= 40:
+                    elif (odd >= 3) and (odd < 4) and (prob_calc >= 40):
                         tipo_recomendacao = "ARRISCADA"
-                    elif odd >= 4 and prob_calc >= 40:
+                    elif (odd >= 4) and (odd < 6) and (prob_calc >= 40):
                         tipo_recomendacao = "MUITO_ARRISCADA"
                     
-                    if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
+                    if tipo_recomendacao:  # Mínimo de confiança na probabilidade Bet Booster
                         
                         forca = value * (prob_calc / 100)  # Força baseada em value e probabilidade
                         recomendacoes.append({
@@ -3210,8 +3210,6 @@ class BetBoosterV2:
                         tipo_recomendacao = "FORTE"
                     elif (odd <= 2.5 and prob_calc >= 70) or (odd <= 1.8 and prob_calc >= 65):
                         tipo_recomendacao = "MODERADA"
-                    else:
-                        tipo_recomendacao = None
                     
                     if tipo_recomendacao and prob_calc >= 15:  # Mínimo de confiança na probabilidade Bet Booster
                         
@@ -6118,8 +6116,6 @@ Status: {aposta['status'].title()}
             bilhetes_config = [
                 ('🛡️ Bilhete Seguro 1', 'seguro_1', '#22c55e', 'green'),
                 ('🛡️ Bilhete Seguro 2', 'seguro_2', '#22c55e', 'green'),
-                ('🛡️ Bilhete Seguro 3', 'seguro_3', '#22c55e', 'green'),
-                ('🛡️ Bilhete Seguro 4', 'seguro_4', '#22c55e', 'green'),
                 ('⚡ Bilhete Arriscado 1', 'arriscado_1', '#f97316', 'orange'),
                 ('⚡ Bilhete Arriscado 2', 'arriscado_2', '#f97316', 'orange'),
                 ('🔥 Bilhete Muito Arriscado 1', 'muito_arriscado_1', '#ef4444', 'red'),
@@ -6185,21 +6181,6 @@ Status: {aposta['status'].title()}
             if len(apostas_moderadas) >= 1:
                 apostas_selecionadas.append(apostas_moderadas[0])
                 
-        elif tipo_bilhete == 'seguro_3':
-            # quarta forte + segunda moderada
-            if len(apostas_fortes) >= 4:
-                apostas_selecionadas.append(apostas_fortes[3])
-                backup_idx = 4
-            if len(apostas_moderadas) >= 2:
-                apostas_selecionadas.append(apostas_moderadas[1])
-                
-        elif tipo_bilhete == 'seguro_4':
-            # quinta forte + terceira moderada
-            if len(apostas_fortes) >= 5:
-                apostas_selecionadas.append(apostas_fortes[4])
-                backup_idx = 5
-            if len(apostas_moderadas) >= 3:
-                apostas_selecionadas.append(apostas_moderadas[2])
                 
         elif tipo_bilhete == 'arriscado_1':
             # primeira forte + segunda forte + primeira moderada
@@ -6274,7 +6255,7 @@ Status: {aposta['status'].title()}
         # Preencher apostas faltantes com backup (se necessário)
         # Determinar quantas apostas devem ter cada bilhete
         apostas_esperadas = {
-            'seguro_1': 2, 'seguro_2': 2, 'seguro_3': 2, 'seguro_4': 2,
+            'seguro_1': 2, 'seguro_2': 2,
             'arriscado_1': 3, 'arriscado_2': 3,
             'muito_arriscado_1': 3, 'muito_arriscado_2': 3,
             'mega_sena_1': 5, 'mega_sena_2': 5
@@ -6463,8 +6444,6 @@ Status: {aposta['status'].title()}
             nomes_bilhetes = {
                 'seguro_1': 'Bilhete Seguro 1',
                 'seguro_2': 'Bilhete Seguro 2',
-                'seguro_3': 'Bilhete Seguro 3',
-                'seguro_4': 'Bilhete Seguro 4',
                 'arriscado_1': 'Bilhete Arriscado 1',
                 'arriscado_2': 'Bilhete Arriscado 2',
                 'muito_arriscado_1': 'Bilhete Muito Arriscado 1',
