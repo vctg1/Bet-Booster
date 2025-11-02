@@ -6107,10 +6107,10 @@ Status: {aposta['status'].title()}
             apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA']
             
             # Ordenar apostas
-            apostas_fortes.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_moderadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_muito_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_fortes.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_moderadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_arriscadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_muito_arriscadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
             
             # Configurações dos bilhetes
             bilhetes_config = [
@@ -6470,10 +6470,10 @@ Status: {aposta['status'].title()}
             apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA']
             
             # Ordenar apostas por probabilidade (melhor para pior)
-            apostas_fortes.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_moderadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
-            apostas_muito_arriscadas.sort(key=lambda x: x.get('nossa_prob', 0), reverse=True)
+            apostas_fortes.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_moderadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_arriscadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
+            apostas_muito_arriscadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
             
             # Usar a função obter_apostas_bilhete para montar o bilhete
             apostas_selecionadas = self.obter_apostas_bilhete(
@@ -6547,7 +6547,7 @@ Status: {aposta['status'].title()}
                 apostas_classificadas.append(aposta)
 
         # Ordenar por apostas que tenham a maior diferença de gols esperados
-        apostas_classificadas.sort(key=lambda x: x.get('prob_calculada', 0), reverse=True)
+        apostas_classificadas.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
         return apostas_classificadas
 
 
