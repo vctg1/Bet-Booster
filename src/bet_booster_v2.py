@@ -3117,12 +3117,12 @@ class BetBoosterV2:
                 away_team = odds_detalhadas.get('away_team', 'Visitante')
                 
                 apostas_resultado = [
-                    (f'Vitória {home_team}', home_team, value_casa, prob_casa_calc, prob_casa_implicita, result_odds['home']),
-                    ('Empate', value_empate, prob_empate_calc, prob_empate_implicita, result_odds['draw']),
-                    (f'Vitória {away_team}', away_team, value_fora, prob_fora_calc, prob_fora_implicita, result_odds['away'])
+                    (f'Vitória {home_team}', 'casa', value_casa, prob_casa_calc, prob_casa_implicita, result_odds['home']),
+                    ('Empate', 'empate', value_empate, prob_empate_calc, prob_empate_implicita, result_odds['draw']),
+                    (f'Vitória {away_team}', 'visitante', value_fora, prob_fora_calc, prob_fora_implicita, result_odds['away'])
                 ]
                 
-                for aposta, home_team, value, prob_calc, prob_impl, odd in apostas_resultado:
+                for aposta, tipo_aposta, value, prob_calc, prob_impl, odd in apostas_resultado:
                     # Converter value para porcentagem
                     value_percent = (value - 1) * 100
                     
@@ -6100,11 +6100,24 @@ Status: {aposta['status'].title()}
             canvas.pack(side="left", fill="both", expand=True)
             scrollbar.pack(side="right", fill="y")
             
-            # Obter apostas filtradas
-            apostas_fortes = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'FORTE']
-            apostas_moderadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MODERADA']
-            apostas_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'ARRISCADA']
-            apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA']
+            # Função para verificar se é aposta de vitória (não é over/under)
+            def eh_aposta_vitoria(aposta):
+                aposta_texto = aposta.get('aposta', '').lower()
+                # Excluir apostas de gols (over/under)
+                if 'mais de' in aposta_texto or 'menos de' in aposta_texto:
+                    return False
+                if 'over' in aposta_texto or 'under' in aposta_texto:
+                    return False
+                if 'gol' in aposta_texto:
+                    return False
+                # Incluir apenas apostas de vitória ou empate
+                return True
+            
+            # Obter apostas filtradas - APENAS APOSTAS DE VITÓRIA
+            apostas_fortes = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'FORTE' and eh_aposta_vitoria(a)]
+            apostas_moderadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MODERADA' and eh_aposta_vitoria(a)]
+            apostas_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'ARRISCADA' and eh_aposta_vitoria(a)]
+            apostas_muito_arriscadas = [a for a in self.apostas_hot if a.get('tipo', '').upper() == 'MUITO_ARRISCADA' and eh_aposta_vitoria(a)]
             
             # Ordenar apostas
             apostas_fortes.sort(key=lambda x: x.get('prob_media', 0), reverse=True)
