@@ -3376,6 +3376,8 @@ class BetBoosterV2:
                   command=lambda a=aposta: self.adicionar_aposta_multipla(a)).pack(side='left', padx=5)
         ttk.Button(acoes_frame, text="📊 Ver Análise Completa", 
                   command=lambda a=aposta: self.ver_analise_completa(a)).pack(side='left', padx=5)
+        ttk.Button(acoes_frame, text="🗑️ Deletar Aposta", 
+                  command=lambda a=aposta, cf=card_frame: self.deletar_aposta_hot(a, cf)).pack(side='left', padx=5)
     
     # Métodos para Jogos do Dia
     def buscar_jogos_do_dia(self):
@@ -3944,6 +3946,38 @@ class BetBoosterV2:
         self.apostas_multipla.append(aposta)
         self.atualizar_multipla()
         messagebox.showinfo("Sucesso", f"Aposta adicionada à múltipla: {aposta['aposta']}")
+    
+    def deletar_aposta_hot(self, aposta, card_frame):
+        """Remove aposta da lista de apostas hot e atualiza a interface"""
+        try:
+            # Confirmar com o usuário
+            confirmacao = messagebox.askyesno(
+                "Confirmar Exclusão", 
+                f"Deseja realmente deletar esta aposta?\n\n"
+                f"Jogo: {aposta['jogo']}\n"
+                f"Aposta: {aposta['aposta']}\n\n"
+                f"Esta ação irá remover a aposta da lista de Apostas Hot."
+            )
+            
+            if not confirmacao:
+                return
+            
+            # Remover da lista de apostas hot
+            if hasattr(self, 'apostas_hot') and aposta in self.apostas_hot:
+                self.apostas_hot.remove(aposta)
+                
+                # Destruir o card visualmente
+                card_frame.destroy()
+                
+                # Atualizar interface completa
+                self.atualizar_apostas_hot_interface()
+                
+                messagebox.showinfo("Sucesso", f"Aposta deletada com sucesso!\n\n{aposta['aposta']}")
+            else:
+                messagebox.showwarning("Aviso", "Aposta não encontrada na lista")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao deletar aposta: {str(e)}")
     
     def ver_analise_completa(self, aposta):
         """Mostra análise completa de uma aposta com probabilidades dos resultados"""
