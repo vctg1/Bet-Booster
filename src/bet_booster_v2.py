@@ -3091,6 +3091,15 @@ class BetBoosterV2:
         recomendacoes = []
         
         try:
+            # Filtrar por código de região permitido
+            codigos_regiao_permitidos = ['ES', 'FR', 'SA', 'BR', 'AR', 'PT', 'IT', 'GB', 'TR', '00', '01', '04']
+            codigo_regiao = jogo.get('codigo_regiao', '')
+            
+            # Se o jogo não tem região permitida, retornar lista vazia
+            if codigo_regiao not in codigos_regiao_permitidos:
+                print(f"⚠️ Jogo filtrado por região não permitida: {codigo_regiao}")
+                return []
+            
             odds = odds_detalhadas['odds']
             
             # 1. Analisar Resultado Final (1X2)
@@ -3948,7 +3957,7 @@ class BetBoosterV2:
         messagebox.showinfo("Sucesso", f"Aposta adicionada à múltipla: {aposta['aposta']}")
     
     def deletar_aposta_hot(self, aposta, card_frame):
-        """Remove aposta da lista de apostas hot e atualiza a interface"""
+        """Remove aposta da lista de apostas hot e atualiza a interface preservando filtros"""
         try:
             # Confirmar com o usuário
             confirmacao = messagebox.askyesno(
@@ -3969,8 +3978,8 @@ class BetBoosterV2:
                 # Destruir o card visualmente
                 card_frame.destroy()
                 
-                # Atualizar interface completa
-                self.atualizar_apostas_hot_interface()
+                # Reaplicar filtros para atualizar a interface preservando a ordenação e filtros atuais
+                self.aplicar_filtros_hot()
                 
                 messagebox.showinfo("Sucesso", f"Aposta deletada com sucesso!\n\n{aposta['aposta']}")
             else:
