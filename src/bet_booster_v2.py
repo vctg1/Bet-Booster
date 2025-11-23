@@ -3092,12 +3092,18 @@ class BetBoosterV2:
         
         try:
             # Filtrar por código de região permitido
-            codigos_regiao_permitidos = ['ES', 'FR', 'SA', 'BR', 'AR', 'PT', 'IT', 'GB', 'TR', '00', '01', '04']
+            codigos_regiao_permitidos = ['ES', 'FR', 'SA', 'BR', 'AR', 'PT', 'IT', 'GB', 'TR', 'DE', '00', '01', '04']
             codigo_regiao = jogo.get('codigo_regiao', '')
             
             # Se o jogo não tem região permitida, retornar lista vazia
             if codigo_regiao not in codigos_regiao_permitidos:
                 print(f"⚠️ Jogo filtrado por região não permitida: {codigo_regiao}")
+                return []
+            
+            # Filtrar por relevância da liga (apenas high)
+            relevancia_liga = jogo.get('relevancia_liga', '')
+            if relevancia_liga != 'high':
+                print(f"⚠️ Jogo filtrado por relevância da liga: {relevancia_liga}")
                 return []
             
             odds = odds_detalhadas['odds']
