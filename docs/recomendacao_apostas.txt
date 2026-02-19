@@ -1,0 +1,30 @@
+Bilhete seguro 1:
+Primeira aposta forte
+Primeira aposta moderada
+
+Bilhete seguro 2:
+Segunda aposta forte
+Segunda aposta moderada
+
+Bilhete arriscado 1:
+Primeira aposta forte
+Primeira e Segunda apostas moderadas
+
+Bilhete arriscado 2:
+Segunda aposta forte
+Primeira e Segunda apostas moderadas
+
+Bilhete muito arriscado 1:
+Primeira e Segunda apostas moderadas
+Primeira aposta arriscada
+
+Bilhete muito arriscado 2:
+Primeira e Segunda apostas moderadas
+Segunda aposta arriscada
+
+Bilhete Mega Sena:
+Primeira e Segunda apostas fortes
+Primeira e Segunda apostas moderadas
+Primeira aposta arriscada
+Primeira aposta muito arriscada
+

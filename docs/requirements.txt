@@ -1,0 +1,24 @@
+# Bet Booster - Python Dependencies
+# API and HTTP requests
+requests>=2.32.0
+
+# GUI Framework
+tkinter  # Built-in with Python, included for documentation
+
+# Calendar widget and dependencies
+Babel>=2.9.1
+pytz>=2021.3
+tkcalendar==1.6.1
+
+# Data handling and utilities
+json  # Built-in with Python
+datetime  # Built-in with Python
+threading  # Built-in with Python
+os  # Built-in with Python
+sys  # Built-in with Python
+
+# Optional dependencies for enhanced functionality
+# Uncomment if needed:
+# pandas>=1.5.0  # For advanced data analysis
+# numpy>=1.21.0  # For numerical computations
+# matplotlib>=3.5.0  # For data visualization
